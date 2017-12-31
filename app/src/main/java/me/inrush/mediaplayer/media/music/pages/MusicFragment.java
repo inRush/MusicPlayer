@@ -1,4 +1,4 @@
-package me.inrush.mediaplayer.fragments;
+package me.inrush.mediaplayer.media.music.pages;
 
 import android.animation.ObjectAnimator;
 import android.graphics.Bitmap;
@@ -22,23 +22,23 @@ import java.util.List;
 import butterknife.BindView;
 import butterknife.OnClick;
 import me.inrush.mediaplayer.R;
-import me.inrush.mediaplayer.common.BaseFragment;
 import me.inrush.mediaplayer.common.BaseRecyclerAdapter;
 import me.inrush.mediaplayer.media.MediaRecyclerAdapter;
 import me.inrush.mediaplayer.media.MediaUtil;
 import me.inrush.mediaplayer.media.bean.Media;
 import me.inrush.mediaplayer.media.common.MediaStatus;
-import me.inrush.mediaplayer.media.music.MusicActivity;
-import me.inrush.mediaplayer.media.music.MusicPlayer;
-import me.inrush.mediaplayer.media.music.OnMusicChangeListenerImpl;
+import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListener;
+import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListenerImpl;
 import me.inrush.mediaplayer.media.music.PlayListBottomSheetDialog;
+import me.inrush.mediaplayer.media.music.base.BaseMusicFragment;
+import me.inrush.mediaplayer.media.music.base.MusicProgressChangeProcessor;
 
 /**
  * @author inrush
  * @date 2017/12/27.
  */
 
-public class MusicFragment extends BaseFragment {
+public class MusicFragment extends BaseMusicFragment {
 
     @BindView(R.id.rc_media_list)
     RecyclerView mMusicList;
@@ -55,9 +55,19 @@ public class MusicFragment extends BaseFragment {
     @BindView(R.id.fl_play_panel)
     FrameLayout mPlayPanel;
 
-    private MusicPlayer mMusicPlayer;
     private int mCurrentMusicId = -1;
     private ObjectAnimator mThumbAnimator;
+    private MusicProgressChangeProcessor mProgressChangeProcessor;
+
+
+    private void initThumbAnimator() {
+        mThumbAnimator = ObjectAnimator
+                .ofFloat(mThumb, "rotation", 0f, 360f)
+                .setDuration(30000);
+        mThumbAnimator.setRepeatCount(-1);
+        mThumbAnimator.setInterpolator(new LinearInterpolator());
+
+    }
 
     @Override
     protected int getContentLayoutId() {
@@ -72,14 +82,6 @@ public class MusicFragment extends BaseFragment {
         mSinger.setSelected(true);
     }
 
-    private void initThumbAnimator() {
-        mThumbAnimator = ObjectAnimator
-                .ofFloat(mThumb, "rotation", 0f, 360f)
-                .setDuration(30000);
-        mThumbAnimator.setRepeatCount(-1);
-        mThumbAnimator.setInterpolator(new LinearInterpolator());
-
-    }
 
     @Override
     protected void initData() {
@@ -92,11 +94,12 @@ public class MusicFragment extends BaseFragment {
             public void onItemClick(BaseRecyclerAdapter.BaseViewHolder holder, Media data) {
                 if (mMusicPlayer.getMusicList().size() == 0) {
                     mMusicPlayer.addMusics(mediaList);
-                } else if (mMusicPlayer.getMusicInOriginListIndex(data.getId()) == -1) {
+                } else if (!mMusicPlayer.hasMusic(data)) {
                     mMusicPlayer.cleanPlayList();
                     mMusicPlayer.addMusics(mediaList);
                 }
-                MusicActivity.start(getActivity(), data.getId());
+                mMusicPlayer.play(data);
+                MusicActivity.start(getActivity());
             }
 
             @Override
@@ -115,7 +118,7 @@ public class MusicFragment extends BaseFragment {
                             public void onClick(QMUIDialog dialog, int index) {
                                 dialog.dismiss();
                                 final QMUITipDialog tipDialog;
-                                if (mMusicPlayer.getMusicInOriginListIndex(data.getId()) == -1) {
+                                if (!mMusicPlayer.hasMusic(data)) {
                                     mMusicPlayer.addMusic(data);
                                     tipDialog = new QMUITipDialog.Builder(getContext())
                                             .setIconType(QMUITipDialog.Builder.ICON_TYPE_SUCCESS)
@@ -140,73 +143,50 @@ public class MusicFragment extends BaseFragment {
             }
         });
         mMusicList.setAdapter(adapter);
-        mMusicPlayer = MusicPlayer.getPlayer();
-
-        mMusicPlayer.bindMusicProgressChangeListener(new OnMusicChangeListenerImpl() {
-            @Override
-            public void onProgressChange(int progress) {
-                mProgress.setProgress(progress);
-            }
-
-            @Override
-            public void onMusicChange(Media media) {
-                setCurrentMusic(media);
-            }
-
-            @Override
-            public void onPlayerStatusChange(MediaStatus status) {
-                if (status == MediaStatus.START) {
-                    mPlayBtn.setSelected(true);
-                    if (mThumbAnimator.isPaused()) {
-                        mThumbAnimator.resume();
-                    } else {
-                        mThumbAnimator.start();
-                    }
-                } else if (status == MediaStatus.PAUSE) {
-                    mPlayBtn.setSelected(false);
-                    mThumbAnimator.pause();
-                }
-            }
-
-            @Override
-            public void onMusicPlayListCountChange(int newCount, int oldCount) {
-                if (newCount == 0) {
-                    mPlayPanel.setVisibility(View.GONE);
-                } else {
-                    mPlayPanel.setVisibility(View.VISIBLE);
-                }
-                setCurrentMusic(mMusicPlayer.getCurrentMusic());
-            }
-        });
     }
 
     private void setCurrentMusic(Media media) {
-        if (media == null) {
-            return;
+        if (mIsBindComplete) {
+            if (media == null) {
+                return;
+            }
+            Bitmap thumb = media.getThumb();
+            if (thumb != null) {
+                mThumb.setImageBitmap(thumb);
+            } else {
+                mThumb.setImageBitmap(
+                        BitmapFactory.decodeResource(getContext().getResources(),
+                                R.drawable.placeholder_disk_play_program));
+            }
+            mMusicName.setText(media.getName());
+            mSinger.setText(media.getArtist());
+            mCurrentMusicId = media.getId();
+            if (mProgress.getMax() != mMusicPlayer.getDuration()) {
+                mProgress.setMax(mMusicPlayer.getDuration());
+                mProgress.setProgress(0);
+            }
         }
-        Bitmap thumb = media.getThumb();
-        if (thumb != null) {
-            mThumb.setImageBitmap(thumb);
-        } else {
-            mThumb.setImageBitmap(
-                    BitmapFactory.decodeResource(getContext().getResources(),
-                            R.drawable.placeholder_disk_play_program));
-        }
-        mMusicName.setText(media.getName());
-        mSinger.setText(media.getArtist());
-        mCurrentMusicId = media.getId();
-        if (mProgress.getMax() != mMusicPlayer.getDuration()) {
-            mProgress.setMax(mMusicPlayer.getDuration());
-            mProgress.setProgress(0);
-        }
+    }
 
+    private void setMusicStatus(MediaStatus status) {
+        if (status == MediaStatus.START) {
+            mPlayBtn.setSelected(true);
+            if (mThumbAnimator.isPaused()) {
+                mThumbAnimator.resume();
+            } else {
+                mThumbAnimator.start();
+            }
+        } else if (status == MediaStatus.PAUSE) {
+            mPlayBtn.setSelected(false);
+            mThumbAnimator.pause();
+        }
     }
 
 
     @OnClick(R.id.ll_play_area)
     void onPlayAreaClick() {
         if (mCurrentMusicId != -1) {
-            MusicActivity.start(getActivity(), mCurrentMusicId);
+            MusicActivity.start(getActivity());
         }
     }
 
@@ -217,7 +197,7 @@ public class MusicFragment extends BaseFragment {
 
     @OnClick(R.id.iv_play)
     void onPlayBtnClick() {
-        mMusicPlayer.switchState();
+        mMusicPlayer.play();
     }
 
 
@@ -226,4 +206,61 @@ public class MusicFragment extends BaseFragment {
         new PlayListBottomSheetDialog()
                 .show(getFragmentManager(), "playlist");
     }
+
+    @Override
+    public void onDestroy() {
+        mProgressChangeProcessor.onDestroy();
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onServiceBindComplete() {
+        mProgressChangeProcessor =
+                new MusicProgressChangeProcessor(mMusicPlayer,
+                        new MusicProgressChangeProcessor.OnMusicProgressChangeListener() {
+                            @Override
+                            public void onProgressChange(int progress) {
+                                mProgress.setProgress(progress);
+                            }
+                        });
+        setMusicStatus(mMusicPlayer.getStatus());
+        setCurrentMusic(mMusicPlayer.getCurrentMusic());
+        if (mMusicPlayer.getMusicCount() == 0) {
+            mPlayPanel.setVisibility(View.GONE);
+        }else {
+            mPlayPanel.setVisibility(View.VISIBLE);
+        }
+    }
+
+
+    @Override
+    protected OnMusicChangeListener getMusicChangeListener() {
+        return new MusicChangeListener();
+    }
+
+    class MusicChangeListener extends OnMusicChangeListenerImpl {
+        @Override
+        public void onPlayerStatusChange(MediaStatus status) {
+            super.onPlayerStatusChange(status);
+            setMusicStatus(status);
+        }
+
+        @Override
+        public void onMusicPlayListCountChange(int count) {
+            if (count == 0) {
+                mPlayPanel.setVisibility(View.GONE);
+            } else {
+                mPlayPanel.setVisibility(View.VISIBLE);
+            }
+            setCurrentMusic(mMusicPlayer.getCurrentMusic());
+        }
+
+        @Override
+        public void onMusicChange(Media media) {
+            super.onMusicChange(media);
+            setCurrentMusic(media);
+        }
+    }
+
+
 }

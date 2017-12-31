@@ -16,4 +16,9 @@
         <item name="qmui_topbar_bg_color">@color/colorPrimary</item>
     </style>
 
+    <style name="DialogBottom">
+        <item name="android:windowEnterAnimation">@anim/bottom_dialog_in</item>
+        <item name="android:windowExitAnimation">@anim/bottom_dialog_out</item>
+    </style>
+
 </resources>

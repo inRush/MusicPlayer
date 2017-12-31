@@ -2,17 +2,12 @@ package me.inrush.mediaplayer;
 
 import android.annotation.SuppressLint;
 import android.app.Application;
-import android.app.Service;
-import android.content.ComponentName;
-import android.content.Intent;
-import android.content.ServiceConnection;
-import android.os.IBinder;
 import android.widget.Toast;
 
 import net.qiujuer.genius.kit.handler.Run;
 import net.qiujuer.genius.kit.handler.runable.Action;
 
-import me.inrush.mediaplayer.media.music.services.MusicService;
+import me.inrush.mediaplayer.media.music.MusicPlayerInitializer;
 
 /**
  * @author inrush
@@ -24,34 +19,15 @@ public class App extends Application {
     private static Application mInstance;
 
 
-    private static MusicService.MusicBinder sMusicBinder;
-
-    private ServiceConnection mServiceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            sMusicBinder = (MusicService.MusicBinder) service;
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-
-        }
-    };
-
     @Override
     public void onCreate() {
         super.onCreate();
         mInstance = this;
-        Intent intent = new Intent(this, MusicService.class);
-        bindService(intent, mServiceConnection, Service.BIND_AUTO_CREATE);
+        MusicPlayerInitializer.init(this);
     }
 
     public static Application getInstance() {
         return mInstance;
-    }
-
-    public static MusicService.MusicBinder getMusicPlayer() {
-        return sMusicBinder;
     }
 
     /**

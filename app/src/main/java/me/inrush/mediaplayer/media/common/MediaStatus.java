@@ -6,6 +6,16 @@ package me.inrush.mediaplayer.media.common;
  */
 
 public enum MediaStatus {
+    /**
+     * start status
+     */
     START,
-    PAUSE;
+    /**
+     * pause status
+     */
+    PAUSE,
+    /**
+     * stop status
+     */
+    STOP
 }

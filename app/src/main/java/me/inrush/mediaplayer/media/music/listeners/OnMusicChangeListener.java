@@ -1,7 +1,8 @@
-package me.inrush.mediaplayer.media.music;
+package me.inrush.mediaplayer.media.music.listeners;
 
 import me.inrush.mediaplayer.media.bean.Media;
 import me.inrush.mediaplayer.media.common.MediaStatus;
+import me.inrush.mediaplayer.media.music.base.MusicPlayMode;
 
 /**
  * @author inrush
@@ -9,13 +10,6 @@ import me.inrush.mediaplayer.media.common.MediaStatus;
  */
 
 public interface OnMusicChangeListener {
-    /**
-     * 进度变化
-     *
-     * @param progress 进度
-     */
-    void onProgressChange(int progress);
-
     /**
      * 在Music发生变化时,下一个
      *
@@ -40,8 +34,7 @@ public interface OnMusicChangeListener {
     /**
      * 歌曲数量变化时触发
      *
-     * @param newCount 新的数量
-     * @param oldCount 旧的数量
+     * @param count 新的数量
      */
-    void onMusicPlayListCountChange(int newCount, int oldCount);
+    void onMusicPlayListCountChange(int count);
 }

@@ -24,6 +24,7 @@ public abstract class BaseFragment extends android.support.v4.app.Fragment {
 
     /**
      * 在Fragment添加到Activity中去的时候
+     *
      * @param context 上下文
      */
     @Override
@@ -62,6 +63,7 @@ public abstract class BaseFragment extends android.support.v4.app.Fragment {
 
     /**
      * 初始化相关参数
+     *
      * @param bundle 参数bundle
      */
     protected void initArgs(Bundle bundle) {
@@ -79,7 +81,7 @@ public abstract class BaseFragment extends android.support.v4.app.Fragment {
      * 初始化控件
      */
     protected void initWidget(View root) {
-        mRootUnbinder = ButterKnife.bind(this,root);
+        mRootUnbinder = ButterKnife.bind(this, root);
     }
 
     /**
@@ -89,11 +91,16 @@ public abstract class BaseFragment extends android.support.v4.app.Fragment {
 
     }
 
+
+
     /**
      * 返回按键触发时调用
-     * @return 返回True代表已经处理返回逻辑,Activity不用自己finish.返回False代表没有处理返回逻辑,Activity自己走自己的逻辑
+     *
+     * @return 返回True代表已经处理返回逻辑, Activity不用自己finish.返回False代表没有处理返回逻辑, Activity自己走自己的逻辑
      */
-    public boolean onBackPressed(){
+    public boolean onBackPressed() {
         return false;
     }
+
+
 }

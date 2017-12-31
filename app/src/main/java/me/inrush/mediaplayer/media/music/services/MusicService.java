@@ -9,14 +9,14 @@ import android.os.IBinder;
 import android.support.annotation.Nullable;
 
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import me.inrush.mediaplayer.App;
 import me.inrush.mediaplayer.media.bean.Media;
-import me.inrush.mediaplayer.media.music.MusicPlayMode;
+import me.inrush.mediaplayer.media.common.MediaStatus;
+import me.inrush.mediaplayer.media.music.base.MusicPlayMode;
 
 /**
  * @author inrush
@@ -38,13 +38,17 @@ public class MusicService extends Service {
      */
     private boolean shouldStart = false;
     /**
+     * 当前播放器的状态
+     */
+    private MediaStatus mStatus = MediaStatus.STOP;
+    /**
      * 播放模式(默认列表循环)
      */
     private MusicPlayMode mPlayMode = MusicPlayMode.LIST_LOOP;
     /**
      * 通讯器
      */
-    private MusicBinder mBinder = new MusicBinder(this);
+    private MusicBinder mBinder = new MusicBinder();
     /**
      * 播放列表(用于切换不同的播放模式的列表)
      */
@@ -57,6 +61,20 @@ public class MusicService extends Service {
      * 当前播放音乐的索引
      */
     private int mCurrentIndex = 0;
+    /**
+     * 自动切换下一首歌
+     */
+    private Runnable autoNextThread = new Runnable() {
+        @Override
+        public void run() {
+            if (!mIsPlayerInit) {
+                return;
+            }
+            if (mPlayer.getCurrentPosition() == mPlayer.getDuration() - 200) {
+                nextMusic();
+            }
+        }
+    };
 
     @Override
     public void onCreate() {
@@ -87,10 +105,20 @@ public class MusicService extends Service {
      * @param id Music ID
      * @return if exist will return music index in play list else return -1
      */
-    private int getMusicIndex(int id) {
+    private int getPlayListIndex(int id) {
         int count = mPlayList.size();
         for (int i = 0; i < count; i++) {
             if (id == mPlayList.get(i).getId()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int getPlayListInfoIndex(int id) {
+        int count = mPlayListInfo.size();
+        for (int i = 0; i < count; i++) {
+            if (id == mPlayListInfo.get(i).getId()) {
                 return i;
             }
         }
@@ -110,9 +138,12 @@ public class MusicService extends Service {
         if (music == null) {
             mCurrentIndex = 0;
         } else {
-            mCurrentIndex = getMusicIndex(music.getId());
+            mCurrentIndex = getPlayListIndex(music.getId());
         }
         if (!mIsPlayerInit) {
+            if (mPlayer == null) {
+                mPlayer = new MediaPlayer();
+            }
             initPlayer(mPlayList.get(0).getPath());
         }
     }
@@ -121,7 +152,6 @@ public class MusicService extends Service {
      * 初始化播放器的监听器
      */
     private void initPlayer(Uri musicUri) {
-        mIsPlayerInit = true;
         mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
             public void onPrepared(MediaPlayer mp) {
@@ -129,10 +159,35 @@ public class MusicService extends Service {
                     mp.start();
                     shouldStart = false;
                 }
+                mIsPlayerInit = true;
+            }
+        });
+        mPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+                mIsPlayerInit = false;
+                MusicService.this.mPlayer.release();
+                MusicService.this.mPlayer = null;
+                if (mPlayMode == MusicPlayMode.ONE_LOOP) {
+                    play(mCurrentIndex);
+                } else {
+                    nextMusic();
+                }
+            }
+        });
+        mPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+            @Override
+            public boolean onError(MediaPlayer mp, int what, int extra) {
+                mIsPlayerInit = false;
+                MusicService.this.mPlayer.release();
+                MusicService.this.mPlayer = null;
+                play(mCurrentIndex);
+                return true;
             }
         });
         try {
             mPlayer.setDataSource(App.getInstance(), musicUri);
+            mPlayer.prepareAsync();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -150,6 +205,7 @@ public class MusicService extends Service {
             }
             mPlayer.reset();
             mPlayer.setDataSource(App.getInstance(), musicUri);
+            mIsPlayerInit = false;
             mPlayer.prepareAsync();
         } catch (IllegalStateException e) {
             // 发生异常,重新创建MusicPlayer
@@ -194,12 +250,15 @@ public class MusicService extends Service {
     }
 
     public void play(Media music) {
-        int index = getMusicIndex(music.getId());
+        int index = getPlayListIndex(music.getId());
         if (index == -1) {
             return;
         }
         play(index);
+        mStatus = MediaStatus.START;
+        noticeChange(MusicAction.MUSIC_PLAY_STATUS_CHANGE);
     }
+
 
     public void play() {
         if (!mIsPlayerInit) {
@@ -207,8 +266,14 @@ public class MusicService extends Service {
         }
         if (!mPlayer.isPlaying()) {
             mPlayer.start();
+            mStatus = MediaStatus.START;
+        } else {
+            mPlayer.pause();
+            mStatus = MediaStatus.PAUSE;
         }
+        noticeChange(MusicAction.MUSIC_PLAY_STATUS_CHANGE);
     }
+
 
     public void pause() {
         if (!mIsPlayerInit) {
@@ -217,6 +282,29 @@ public class MusicService extends Service {
         if (mPlayer.isPlaying()) {
             mPlayer.pause();
         }
+        mStatus = MediaStatus.PAUSE;
+        noticeChange(MusicAction.MUSIC_PLAY_STATUS_CHANGE);
+    }
+
+    public void nextMusic() {
+        play(mCurrentIndex + 1);
+    }
+
+    public void preMusic() {
+        if (mPlayMode == MusicPlayMode.ONE_LOOP) {
+            play(mCurrentIndex);
+        } else {
+            play(mCurrentIndex - 1);
+        }
+    }
+
+    private void playListEmpty() {
+        mPlayer.stop();
+        mPlayer.release();
+        mStatus = MediaStatus.STOP;
+        mPlayer = null;
+        mIsPlayerInit = false;
+        mCurrentIndex = 0;
     }
 
     /**
@@ -236,14 +324,24 @@ public class MusicService extends Service {
         mPlayListInfo.remove(music);
         mPlayList.remove(music);
         // 更新当前索引
-        mCurrentIndex = getMusicIndex(currentMusic.getId());
+        mCurrentIndex = getPlayListIndex(currentMusic.getId());
         // 全部清空了
         if (mPlayListInfo.size() == 0) {
-            mPlayer.stop();
-            mCurrentIndex = 0;
+            playListEmpty();
         }
         noticeChange(MusicAction.MUSIC_LIST_COUNT_CHANGE);
     }
+
+    /**
+     * 清空播放列表
+     */
+    public void cleanPlayList() {
+        mPlayListInfo.clear();
+        mPlayList.clear();
+        playListEmpty();
+        noticeChange(MusicAction.MUSIC_LIST_COUNT_CHANGE);
+    }
+
 
     public void addMusic(Media music) {
         mPlayListInfo.add(music);
@@ -265,19 +363,73 @@ public class MusicService extends Service {
     }
 
     public int getDuration() {
-        if (mPlayer == null) {
+        if (mPlayer == null || !mIsPlayerInit) {
             return -1;
         }
         return mPlayer.getDuration();
     }
 
     public int getCurrentProgress() {
-        if (mPlayer == null) {
+        if (mPlayer == null || !mIsPlayerInit) {
             return -1;
         }
         return mPlayer.getCurrentPosition();
     }
 
+    public MediaStatus getStatus() {
+        return mStatus;
+    }
+
+    public void setCurrentProgress(int progress) {
+        if (progress > mPlayer.getDuration()) {
+            return;
+        }
+        mPlayer.seekTo(progress);
+    }
+
+    public int getMusicCount() {
+        return mPlayListInfo.size();
+    }
+
+    public void changePlayMode() {
+        MusicPlayMode mode = MusicPlayMode.LIST_LOOP;
+        if (mPlayMode == MusicPlayMode.ONE_LOOP) {
+            mode = MusicPlayMode.RANDOM;
+        } else if (mPlayMode == MusicPlayMode.LIST_LOOP) {
+            mode = MusicPlayMode.ONE_LOOP;
+        }
+        mPlayMode = mode;
+        resetPlayList();
+        noticeChange(MusicAction.MUSIC_PLAY_MODE_CHANGE);
+    }
+
+    public MusicPlayMode getPlayMode() {
+        return mPlayMode;
+    }
+
+    public ArrayList<Media> getMusicList() {
+        return mPlayListInfo;
+    }
+
+    public boolean hasMusic(Media music) {
+        return getPlayListInfoIndex(music.getId()) != -1;
+    }
+
+    /**
+     * 获取音乐的索引
+     *
+     * @param id              音乐ID
+     * @param isPlayListIndex True|False
+     * @return isPlayListIndex-true:取播放列表的Index,
+     * isPlayListIndex-false:取原始列表的Index
+     */
+    public int getMusicIndex(int id, boolean isPlayListIndex) {
+        if (isPlayListIndex) {
+            return getPlayListIndex(id);
+        } else {
+            return getPlayListInfoIndex(id);
+        }
+    }
 
     /**
      * 获取播放器是否在播放
@@ -290,59 +442,8 @@ public class MusicService extends Service {
 
 
     public class MusicBinder extends Binder {
-
-        private WeakReference<MusicService> mService;
-
-        public MusicBinder(MusicService service) {
-            mService = new WeakReference<>(service);
-        }
-
-        public void play(Media music) {
-            mService.get().play(music);
-        }
-
-        public void play() {
-            mService.get().play();
-        }
-
-        public void pause() {
-            mService.get().pause();
-        }
-
-        public void addMusic(Media music) {
-            mService.get().addMusic(music);
-        }
-
-        public void addMusic(List<Media> musics) {
-            mService.get().addMusics(musics);
-        }
-
-        public void removeMusic(Media music) {
-            mService.get().removeMusic(music);
-        }
-
-        public boolean hasMusic(Media music) {
-            return mService.get().getMusicIndex(music.getId()) != -1;
-        }
-
-        public int getDuration() {
-            return mService.get().getDuration();
-        }
-
-        public int getCurrentProgress() {
-            return mService.get().getCurrentProgress();
-        }
-
-        public MusicPlayMode getPlayMode() {
-            return mService.get().mPlayMode;
-        }
-
-        public ArrayList<Media> getMusicList() {
-            return mService.get().mPlayListInfo;
-        }
-
-        public int getMusicCount() {
-            return mService.get().mPlayListInfo.size();
+        public MusicService getPlayer() {
+            return MusicService.this;
         }
     }
 

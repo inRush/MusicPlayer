@@ -6,6 +6,7 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 
 import butterknife.BindView;
@@ -13,6 +14,7 @@ import me.inrush.mediaplayer.App;
 import me.inrush.mediaplayer.R;
 import me.inrush.mediaplayer.common.BaseRecyclerAdapter;
 import me.inrush.mediaplayer.media.bean.Media;
+import me.inrush.mediaplayer.media.music.services.MusicService;
 
 /**
  * @author inrush
@@ -21,8 +23,11 @@ import me.inrush.mediaplayer.media.bean.Media;
 
 public class PlayListAdapter extends BaseRecyclerAdapter<Media> {
 
-    public PlayListAdapter(List<Media> dataList) {
+    private WeakReference<MusicService> mMusicPlayer;
+
+    public PlayListAdapter(List<Media> dataList, MusicService player) {
         super(dataList);
+        this.mMusicPlayer = new WeakReference<>(player);
     }
 
     @Override
@@ -57,13 +62,13 @@ public class PlayListAdapter extends BaseRecyclerAdapter<Media> {
             mDeleteBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    MusicPlayer.getPlayer().removeMusic(data);
+                    mMusicPlayer.get().removeMusic(data);
                     notifyDataSetChanged();
                 }
             });
             int color = Color.BLACK;
-            if (MusicPlayer.getPlayer().getCurrentMusic() == data) {
-                color = ContextCompat.getColor(App.getInstance(),R.color.colorPrimary);
+            if (mMusicPlayer.get().getCurrentMusic() == data) {
+                color = ContextCompat.getColor(App.getInstance(), R.color.colorPrimary);
             }
             setColor(R.id.tv_name, color);
             setColor(R.id.tv_singer, color);

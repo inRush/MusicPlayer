@@ -10,6 +10,8 @@ import android.view.Window;
 import com.qmuiteam.qmui.util.QMUIDisplayHelper;
 import com.qmuiteam.qmui.util.QMUIStatusBarHelper;
 
+import me.inrush.mediaplayer.R;
+
 /**
  * 透明状态栏的BottomSheetDialog
  *
@@ -37,6 +39,8 @@ public class TransStatusBottomSheetDialog extends BottomSheetDialog {
         if (window == null) {
             return;
         }
+
+        window.setWindowAnimations(R.style.DialogBottom);
 
         // 拿到屏幕的高度
         int screenHeight = QMUIDisplayHelper.getScreenHeight(getContext());

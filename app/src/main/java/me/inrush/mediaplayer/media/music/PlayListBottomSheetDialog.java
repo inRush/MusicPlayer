@@ -1,6 +1,7 @@
 package me.inrush.mediaplayer.media.music;
 
 import android.app.Dialog;
+import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
@@ -28,7 +29,13 @@ import me.inrush.mediaplayer.R;
 import me.inrush.mediaplayer.common.BaseRecyclerAdapter;
 import me.inrush.mediaplayer.common.TransStatusBottomSheetDialog;
 import me.inrush.mediaplayer.media.bean.Media;
-import me.inrush.mediaplayer.media.common.MediaListenerUnBinder;
+import me.inrush.mediaplayer.media.common.MediaStatus;
+import me.inrush.mediaplayer.media.music.base.MusicBroadcastReceiver;
+import me.inrush.mediaplayer.media.music.base.MusicPlayMode;
+import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListenerImpl;
+import me.inrush.mediaplayer.media.music.listeners.OnServiceBindCompleteListener;
+import me.inrush.mediaplayer.media.music.services.MusicAction;
+import me.inrush.mediaplayer.media.music.services.MusicService;
 
 /**
  * @author inrush
@@ -36,13 +43,13 @@ import me.inrush.mediaplayer.media.common.MediaListenerUnBinder;
  */
 
 public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
-    private static final String DATA_KEY = "playList";
     private View mRootView;
     private List<Media> mMusicList;
     private PlayListAdapter mAdapter;
-    private MusicPlayer mMusicPlayer;
-    private MediaListenerUnBinder mUnBinder;
-//    private static PlayListBottomSheetDialog mInstance;
+    protected MusicService mMusicPlayer;
+    private MusicBroadcastReceiver mReceiver;
+    private MusicPlayerInitializer mInitializer;
+
 
     @BindView(R.id.iv_play_mode_icon)
     ImageView mPlayModeIcon;
@@ -53,16 +60,6 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
     @BindView(R.id.tv_play_list_count)
     TextView mMusicCount;
 
-//    public static void showDialog(FragmentManager manager){
-//        if(mInstance == null){
-//            synchronized (PlayListBottomSheetDialog.class){
-//                if(mInstance == null){
-//                    mInstance = new PlayListBottomSheetDialog();
-//                }
-//            }
-//        }
-//        mInstance.show(manager,"playlist");
-//    }
 
     @Nullable
     @Override
@@ -71,7 +68,6 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
             mRootView = inflater.inflate(R.layout.dialog_play_list, container, false);
             ButterKnife.bind(this, mRootView);
             initMusicPlayer();
-            initMusicPlayList();
         } else {
             if (mRootView.getParent() != null) {
                 ((ViewGroup) (mRootView.getParent())).removeView(mRootView);
@@ -82,7 +78,7 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
 
     private void initMusicPlayList() {
         mMusicList = mMusicPlayer.getMusicList();
-        mAdapter = new PlayListAdapter(mMusicList);
+        mAdapter = new PlayListAdapter(mMusicList, mMusicPlayer);
         mAdapter.setListener(new BaseRecyclerAdapter.AdapterListenerImpl<Media>() {
             @Override
             public void onItemClick(BaseRecyclerAdapter.BaseViewHolder holder, Media data) {
@@ -95,31 +91,18 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
     }
 
     private void initMusicPlayer() {
-        mMusicPlayer = MusicPlayer.getPlayer();
-        setPlayMode(mMusicPlayer.getPlayMode());
-        setMusicCount(mMusicPlayer.getMusicList().size());
-        mUnBinder = mMusicPlayer.bindMusicProgressChangeListener(new OnMusicChangeListenerImpl() {
+        mInitializer = new MusicPlayerInitializer(getContext(), new OnServiceBindCompleteListener() {
             @Override
-            public void onMusicChange(Media media) {
-                mAdapter.notifyDataSetChanged();
-                resetPlayListCurrentPosition(true);
-            }
-
-            @Override
-            public void onMusicPlayModeChange(MusicPlayMode mode) {
-                setPlayMode(mode);
-            }
-
-            @Override
-            public void onMusicPlayListCountChange(int newCount, int oldCount) {
-                if (newCount == 0) {
-                    dismiss();
-                    return;
-                }
-                setMusicCount(newCount);
-                resetPlayListCurrentPosition(true);
+            public void onBindComplete(MusicService player) {
+                mMusicPlayer = player;
+                initReceiver();
+                setPlayMode(mMusicPlayer.getPlayMode());
+                setMusicCount(mMusicPlayer.getMusicList().size());
+                initMusicPlayList();
+                resetPlayListCurrentPosition(false);
             }
         });
+        mInitializer.bindToService();
     }
 
     private void setPlayMode(MusicPlayMode mode) {
@@ -153,7 +136,7 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
         mPlayList.postDelayed(new Runnable() {
             @Override
             public void run() {
-                int index = mMusicPlayer.getCurrentMusicInMusicListIndex();
+                int index = mMusicPlayer.getMusicIndex(mMusicPlayer.getCurrentMusic().getId(), false);
                 if (index == -1) {
                     return;
                 }
@@ -163,27 +146,17 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
                     mPlayList.scrollToPosition(index);
                 }
             }
-        }, 200);
+        }, 100);
 
     }
 
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
+
         return new TransStatusBottomSheetDialog(getContext());
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        resetPlayListCurrentPosition(false);
-    }
-
-    @Override
-    public void onDestroy() {
-        mUnBinder.unBind();
-        super.onDestroy();
-    }
 
     @OnClick(R.id.iv_clean)
     void onCleanBtnClick() {
@@ -209,5 +182,52 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
     @OnClick(R.id.ll_play_mode_btn)
     void onPlayModeBtnClick() {
         mMusicPlayer.changePlayMode();
+    }
+
+
+    class MusicChangeListener extends OnMusicChangeListenerImpl {
+        @Override
+        public void onMusicChange(Media media) {
+            super.onMusicChange(media);
+            if (mMusicPlayer.getStatus() != MediaStatus.STOP) {
+                mAdapter.notifyDataSetChanged();
+                resetPlayListCurrentPosition(true);
+            }
+        }
+
+        @Override
+        public void onMusicPlayModeChange(MusicPlayMode mode) {
+            super.onMusicPlayModeChange(mode);
+            setPlayMode(mode);
+        }
+
+        @Override
+        public void onMusicPlayListCountChange(int count) {
+            if (count == 0) {
+                dismiss();
+                return;
+            }
+            setMusicCount(count);
+            resetPlayListCurrentPosition(true);
+        }
+    }
+
+
+    private void initReceiver() {
+        mReceiver = new MusicBroadcastReceiver(mMusicPlayer);
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(MusicAction.MUSIC_CHANGE);
+        intentFilter.addAction(MusicAction.MUSIC_LIST_COUNT_CHANGE);
+        intentFilter.addAction(MusicAction.MUSIC_PLAY_MODE_CHANGE);
+        intentFilter.addAction(MusicAction.MUSIC_PLAY_STATUS_CHANGE);
+        getContext().registerReceiver(mReceiver, intentFilter);
+        mReceiver.setMusicChangeListener(new MusicChangeListener());
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        getContext().unregisterReceiver(mReceiver);
+        mInitializer.onDestroy();
     }
 }

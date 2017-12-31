@@ -1,7 +1,8 @@
-package me.inrush.mediaplayer.media.music;
+package me.inrush.mediaplayer.media.music.listeners;
 
 import me.inrush.mediaplayer.media.bean.Media;
 import me.inrush.mediaplayer.media.common.MediaStatus;
+import me.inrush.mediaplayer.media.music.base.MusicPlayMode;
 
 /**
  * @author inrush
@@ -9,10 +10,6 @@ import me.inrush.mediaplayer.media.common.MediaStatus;
  */
 
 public class OnMusicChangeListenerImpl implements OnMusicChangeListener {
-    @Override
-    public void onProgressChange(int progress) {
-
-    }
 
     @Override
     public void onMusicChange(Media media) {
@@ -30,7 +27,7 @@ public class OnMusicChangeListenerImpl implements OnMusicChangeListener {
     }
 
     @Override
-    public void onMusicPlayListCountChange(int newCount, int oldCount) {
+    public void onMusicPlayListCountChange(int count) {
 
     }
 }

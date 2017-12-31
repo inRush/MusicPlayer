@@ -18,12 +18,12 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity android:name=".media.music.MusicActivity"/>
+        <activity android:name=".media.music.pages.MusicActivity"/>
         <activity android:name=".media.video.VideoActivity"/>
 
         <service
-            android:name=".media.music.services.MusicService"
-            android:process=":main"/>
+            android:name=".media.music.services.MusicService">
+        </service>
     </application>
 
 </manifest>

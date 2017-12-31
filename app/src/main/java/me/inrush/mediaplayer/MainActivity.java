@@ -15,7 +15,7 @@ import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import me.inrush.mediaplayer.fragments.MusicFragment;
+import me.inrush.mediaplayer.media.music.pages.MusicFragment;
 import me.inrush.mediaplayer.fragments.VideoFragment;
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.AppSettingsDialog;
@@ -119,7 +119,6 @@ public class MainActivity extends AppCompatActivity
         String[] perms = new String[]{
                 Manifest.permission.READ_EXTERNAL_STORAGE,
         };
-
         if (EasyPermissions.hasPermissions(this, perms)) {
             App.showToast("获取权限成功");
         } else {

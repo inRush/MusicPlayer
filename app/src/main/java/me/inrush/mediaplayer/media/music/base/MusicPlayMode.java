@@ -1,4 +1,4 @@
-package me.inrush.mediaplayer.media.music;
+package me.inrush.mediaplayer.media.music.base;
 
 /**
  * 音乐播放模式
