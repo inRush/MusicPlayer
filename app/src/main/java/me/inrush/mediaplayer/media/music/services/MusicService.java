@@ -238,8 +238,7 @@ public class MusicService extends Service
             mCurrentIndex = getPlayListIndex(music.getId());
         }
         if (!mIsPlayerInit) {
-
-            initPlayer(mPlayList.get(0).getPath());
+            initPlayer();
         }
     }
 
@@ -251,7 +250,7 @@ public class MusicService extends Service
      * 3.音乐播放器错误状态监听器
      * 4.设置音乐播放器的歌曲
      */
-    private synchronized void initPlayer(Uri musicUri) {
+    private void initPlayer(Uri musicUri) {
         if (mPlayer == null) {
             mPlayer = new MediaPlayer();
         }
@@ -294,11 +293,17 @@ public class MusicService extends Service
             }
         });
         try {
-            mPlayer.setDataSource(App.getInstance(), musicUri);
-            mPlayer.prepareAsync();
+            if (musicUri != null) {
+                mPlayer.setDataSource(App.getInstance(), musicUri);
+                mPlayer.prepareAsync();
+            }
         } catch (Exception e) {
             initPlayer(musicUri);
         }
+    }
+
+    private void initPlayer() {
+        initPlayer(mPlayList.get(0).getPath());
     }
 
     /**
@@ -513,12 +518,8 @@ public class MusicService extends Service
         if (mPlayer == null || !mIsPlayerInit) {
             return -1;
         }
-        try {
-            return mPlayer.getCurrentPosition();
-        } catch (IllegalStateException e) {
-            initPlayer(getCurrentMusic().getPath());
-            return 0;
-        }
+
+        return mPlayer.getCurrentPosition();
     }
 
     public MediaStatus getStatus() {
@@ -588,7 +589,18 @@ public class MusicService extends Service
      * @return True | False
      */
     public boolean isPlaying() {
-        return mIsPlayerInit && mPlayer.isPlaying();
+        try {
+            return mIsPlayerInit && mPlayer.isPlaying();
+        } catch (IllegalStateException e) {
+            Media music = getCurrentMusic();
+            if (music != null) {
+                initPlayer(music.getPath());
+                return mPlayer.isPlaying();
+            } else {
+                initPlayer(null);
+                return false;
+            }
+        }
     }
 
     @Override

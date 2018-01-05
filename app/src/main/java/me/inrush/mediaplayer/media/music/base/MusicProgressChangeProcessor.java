@@ -28,11 +28,13 @@ public class MusicProgressChangeProcessor {
         @Override
         public void run() {
             try {
-                Message msg = new Message();
-                msg.what = PROGRESS_CHANGE_ID;
-                msg.arg1 = mMusicPlayer.get().getCurrentProgress();
-                mHandle.sendMessage(msg);
-                Thread.sleep(1000);
+                if (mMusicPlayer.get().isPlaying()) {
+                    Message msg = new Message();
+                    msg.what = PROGRESS_CHANGE_ID;
+                    msg.arg1 = mMusicPlayer.get().getCurrentProgress();
+                    mHandle.sendMessage(msg);
+                    Thread.sleep(1000);
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

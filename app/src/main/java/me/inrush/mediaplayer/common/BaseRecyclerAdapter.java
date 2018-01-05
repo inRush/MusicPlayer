@@ -248,8 +248,10 @@ public abstract class BaseRecyclerAdapter<T> extends RecyclerView.Adapter<BaseRe
         if (this.mListener != null) {
             // 得到ViewHolder在当前对应的Adapter中的位置
             int pos = viewHolder.getAdapterPosition();
-            // 触发监听器点击事件
-            this.mListener.onItemClick(viewHolder, mDataList.get(pos), pos);
+            if (pos >= 0) {
+                // 触发监听器点击事件
+                this.mListener.onItemClick(viewHolder, mDataList.get(pos), pos);
+            }
         }
     }
 
