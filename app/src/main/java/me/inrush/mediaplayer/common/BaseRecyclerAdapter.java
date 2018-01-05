@@ -42,7 +42,7 @@ public abstract class BaseRecyclerAdapter<T> extends RecyclerView.Adapter<BaseRe
          * @param holder
          * @param data
          */
-        void onItemClick(BaseViewHolder holder, T data);
+        void onItemClick(BaseViewHolder holder, T data, int pos);
 
         /**
          * 当Cell长按时触发
@@ -50,7 +50,7 @@ public abstract class BaseRecyclerAdapter<T> extends RecyclerView.Adapter<BaseRe
          * @param holder
          * @param data
          */
-        void onItemLongClick(BaseViewHolder holder, T data);
+        void onItemLongClick(BaseViewHolder holder, T data, int pos);
     }
 
     /**
@@ -249,7 +249,7 @@ public abstract class BaseRecyclerAdapter<T> extends RecyclerView.Adapter<BaseRe
             // 得到ViewHolder在当前对应的Adapter中的位置
             int pos = viewHolder.getAdapterPosition();
             // 触发监听器点击事件
-            this.mListener.onItemClick(viewHolder, mDataList.get(pos));
+            this.mListener.onItemClick(viewHolder, mDataList.get(pos), pos);
         }
     }
 
@@ -258,7 +258,7 @@ public abstract class BaseRecyclerAdapter<T> extends RecyclerView.Adapter<BaseRe
         BaseViewHolder viewHolder = (BaseViewHolder) v.getTag(R.id.tag_recycler_holder);
         if (this.mListener != null) {
             int pos = viewHolder.getAdapterPosition();
-            this.mListener.onItemLongClick(viewHolder, mDataList.get(pos));
+            this.mListener.onItemLongClick(viewHolder, mDataList.get(pos), pos);
             return true;
         }
         return false;
@@ -340,12 +340,12 @@ public abstract class BaseRecyclerAdapter<T> extends RecyclerView.Adapter<BaseRe
     public static abstract class AdapterListenerImpl<T> implements AdapterListener<T> {
 
         @Override
-        public void onItemClick(BaseViewHolder holder, T data) {
+        public void onItemClick(BaseViewHolder holder, T data, int pos) {
 
         }
 
         @Override
-        public void onItemLongClick(BaseViewHolder holder, T data) {
+        public void onItemLongClick(BaseViewHolder holder, T data, int pos) {
 
         }
     }

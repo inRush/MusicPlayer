@@ -1,4 +1,4 @@
-package me.inrush.mediaplayer.media.music;
+package me.inrush.mediaplayer.media.music.dialogs;
 
 import android.graphics.Color;
 import android.support.v4.content.ContextCompat;
@@ -40,8 +40,9 @@ public class PlayListAdapter extends BaseRecyclerAdapter<Media> {
         return new ViewHolder(root);
     }
 
-
     class ViewHolder extends BaseViewHolder<Media> {
+        private final int NORMAL_COLOR = Color.BLACK;
+        private final int SELECT_COLOR = ContextCompat.getColor(App.getInstance(), R.color.colorPrimary);
         @BindView(R.id.tv_name)
         TextView mName;
         @BindView(R.id.tv_singer)
@@ -50,8 +51,10 @@ public class PlayListAdapter extends BaseRecyclerAdapter<Media> {
         TextView mPlaceHolder;
         @BindView(R.id.iv_delete)
         ImageView mDeleteBtn;
+        @BindView(R.id.iv_playing)
+        ImageView mPlayingStatus;
 
-        public ViewHolder(View itemView) {
+        ViewHolder(View itemView) {
             super(itemView);
         }
 
@@ -66,13 +69,17 @@ public class PlayListAdapter extends BaseRecyclerAdapter<Media> {
                     notifyDataSetChanged();
                 }
             });
-            int color = Color.BLACK;
+            mSinger.setSelected(true);
+            int color = NORMAL_COLOR;
             if (mMusicPlayer.get().getCurrentMusic() == data) {
-                color = ContextCompat.getColor(App.getInstance(), R.color.colorPrimary);
+                color = SELECT_COLOR;
+                mPlayingStatus.setVisibility(View.VISIBLE);
+            } else {
+                mPlayingStatus.setVisibility(View.GONE);
             }
-            setColor(R.id.tv_name, color);
-            setColor(R.id.tv_singer, color);
-            setColor(R.id.tv_placeholder, color);
+            mName.setTextColor(color);
+            mSinger.setTextColor(color);
+            mPlaceHolder.setTextColor(color);
         }
     }
 

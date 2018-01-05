@@ -2,21 +2,24 @@ package me.inrush.mediaplayer;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
+import android.view.View;
+import android.widget.TextView;
 
 import com.qmuiteam.qmui.util.QMUIStatusBarHelper;
-import com.qmuiteam.qmui.widget.QMUITopBar;
 
 import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import me.inrush.mediaplayer.media.music.pages.MusicFragment;
 import me.inrush.mediaplayer.fragments.VideoFragment;
+import me.inrush.mediaplayer.media.music.pages.MusicFragment;
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
@@ -29,8 +32,10 @@ public class MainActivity extends AppCompatActivity
 
     private static final int RC = 0x8888;
 
-    @BindView(R.id.topbar)
-    QMUITopBar mTopBar;
+    @BindView(R.id.tv_music)
+    TextView mMusicPageBtn;
+    @BindView(R.id.tv_video)
+    TextView mVideoPageBtn;
     @BindView(R.id.vp_content)
     ViewPager mContent;
 
@@ -41,15 +46,32 @@ public class MainActivity extends AppCompatActivity
         QMUIStatusBarHelper.translucent(this);
         setContentView(R.layout.activity_main);
         // 申请权限
-        if (!haveReadExternalPerm(this)) {
+        if (!havePerm(this)) {
             requestPerm();
         }
         ButterKnife.bind(this);
         init();
     }
 
+    /**
+     * 选择标题栏的音乐分类按钮
+     */
+    private void selectMusicPage() {
+        mMusicPageBtn.setSelected(true);
+        mMusicPageBtn.setTextColor(Color.parseColor("#000000"));
+        mVideoPageBtn.setSelected(false);
+        mVideoPageBtn.setTextColor(Color.parseColor("#ffffff"));
+    }
+
+    private void selectVideoPage() {
+        mVideoPageBtn.setSelected(true);
+        mVideoPageBtn.setTextColor(Color.parseColor("#000000"));
+        mMusicPageBtn.setSelected(false);
+        mMusicPageBtn.setTextColor(Color.parseColor("#ffffff"));
+    }
+
     private void init() {
-        mTopBar.setTitle("音乐列表");
+        selectMusicPage();
         mContent.setAdapter(new FragmentPagerAdapter(getSupportFragmentManager()) {
             @Override
             public Fragment getItem(int position) {
@@ -79,10 +101,10 @@ public class MainActivity extends AppCompatActivity
             public void onPageSelected(int position) {
                 switch (position) {
                     case 0:
-                        mTopBar.setTitle("音乐列表");
+                        selectMusicPage();
                         break;
                     case 1:
-                        mTopBar.setTitle("视频列表");
+                        selectVideoPage();
                         break;
                     default:
                         break;
@@ -94,6 +116,19 @@ public class MainActivity extends AppCompatActivity
 
             }
         });
+
+        mMusicPageBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mContent.setCurrentItem(0, true);
+            }
+        });
+        mVideoPageBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mContent.setCurrentItem(1, true);
+            }
+        });
     }
 
     /**
@@ -102,14 +137,16 @@ public class MainActivity extends AppCompatActivity
      * @param context 上下文
      * @return true就是有
      */
-    private static boolean haveReadExternalPerm(Context context) {
+    private static boolean havePerm(Context context) {
         // 准备需要检查的录音权限
         String[] perms = new String[]{
-                Manifest.permission.READ_EXTERNAL_STORAGE
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
         };
 
         return EasyPermissions.hasPermissions(context, perms);
     }
+
 
     /**
      * 申请权限
@@ -118,6 +155,7 @@ public class MainActivity extends AppCompatActivity
     private void requestPerm() {
         String[] perms = new String[]{
                 Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
         };
         if (EasyPermissions.hasPermissions(this, perms)) {
             App.showToast("获取权限成功");
@@ -139,5 +177,16 @@ public class MainActivity extends AppCompatActivity
                     .Builder(this)
                     .build().show();
         }
+    }
+
+    @Override
+    public void onBackPressed() {
+        goHome();
+    }
+
+    private void goHome() {
+        Intent home = new Intent(Intent.ACTION_MAIN);
+        home.addCategory(Intent.CATEGORY_HOME);
+        startActivity(home);
     }
 }

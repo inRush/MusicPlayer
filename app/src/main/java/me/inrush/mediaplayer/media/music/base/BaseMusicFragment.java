@@ -67,7 +67,10 @@ public abstract class BaseMusicFragment extends BaseFragment {
     @Override
     public void onPause() {
         super.onPause();
-        getContext().unregisterReceiver(mReceiver);
+        if (mReceiver != null) {
+            getContext().unregisterReceiver(mReceiver);
+        }
+        mReceiver = null;
         mInitializer.onDestroy();
         mIsBindComplete = false;
     }

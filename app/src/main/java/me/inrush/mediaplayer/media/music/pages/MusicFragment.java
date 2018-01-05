@@ -24,14 +24,14 @@ import butterknife.OnClick;
 import me.inrush.mediaplayer.R;
 import me.inrush.mediaplayer.common.BaseRecyclerAdapter;
 import me.inrush.mediaplayer.media.MediaRecyclerAdapter;
-import me.inrush.mediaplayer.media.MediaUtil;
+import me.inrush.mediaplayer.utils.MediaUtil;
 import me.inrush.mediaplayer.media.bean.Media;
 import me.inrush.mediaplayer.media.common.MediaStatus;
-import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListener;
-import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListenerImpl;
-import me.inrush.mediaplayer.media.music.PlayListBottomSheetDialog;
+import me.inrush.mediaplayer.media.music.dialogs.PlayListBottomSheetDialog;
 import me.inrush.mediaplayer.media.music.base.BaseMusicFragment;
 import me.inrush.mediaplayer.media.music.base.MusicProgressChangeProcessor;
+import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListener;
+import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListenerImpl;
 
 /**
  * @author inrush
@@ -91,7 +91,7 @@ public class MusicFragment extends BaseMusicFragment {
         MediaRecyclerAdapter adapter = new MediaRecyclerAdapter(mediaList);
         adapter.setListener(new BaseRecyclerAdapter.AdapterListenerImpl<Media>() {
             @Override
-            public void onItemClick(BaseRecyclerAdapter.BaseViewHolder holder, Media data) {
+            public void onItemClick(BaseRecyclerAdapter.BaseViewHolder holder, Media data, int pos) {
                 if (mMusicPlayer.getMusicList().size() == 0) {
                     mMusicPlayer.addMusics(mediaList);
                 } else if (!mMusicPlayer.hasMusic(data)) {
@@ -99,11 +99,11 @@ public class MusicFragment extends BaseMusicFragment {
                     mMusicPlayer.addMusics(mediaList);
                 }
                 mMusicPlayer.play(data);
-                MusicActivity.start(getActivity());
+                MusicActivity.start(getActivity(), true);
             }
 
             @Override
-            public void onItemLongClick(BaseRecyclerAdapter.BaseViewHolder holder, final Media data) {
+            public void onItemLongClick(BaseRecyclerAdapter.BaseViewHolder holder, final Media data, int pos) {
                 new QMUIDialog.MessageDialogBuilder(getActivity())
                         .setTitle("提示")
                         .setMessage("确定添加到列表中？")
@@ -145,9 +145,20 @@ public class MusicFragment extends BaseMusicFragment {
         mMusicList.setAdapter(adapter);
     }
 
-    private void setCurrentMusic(Media media) {
+    private void setCurrentMusic(final Media media) {
         if (mIsBindComplete) {
             if (media == null) {
+                return;
+            }
+            int duration = mMusicPlayer.getDuration();
+            // 防止duration获取失败
+            if (duration == -1) {
+                mProgress.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        setCurrentMusic(media);
+                    }
+                }, 80);
                 return;
             }
             Bitmap thumb = media.getThumb();
@@ -186,7 +197,7 @@ public class MusicFragment extends BaseMusicFragment {
     @OnClick(R.id.ll_play_area)
     void onPlayAreaClick() {
         if (mCurrentMusicId != -1) {
-            MusicActivity.start(getActivity());
+            MusicActivity.start(getActivity(), true);
         }
     }
 
@@ -227,7 +238,7 @@ public class MusicFragment extends BaseMusicFragment {
         setCurrentMusic(mMusicPlayer.getCurrentMusic());
         if (mMusicPlayer.getMusicCount() == 0) {
             mPlayPanel.setVisibility(View.GONE);
-        }else {
+        } else {
             mPlayPanel.setVisibility(View.VISIBLE);
         }
     }
@@ -261,6 +272,4 @@ public class MusicFragment extends BaseMusicFragment {
             setCurrentMusic(media);
         }
     }
-
-
 }

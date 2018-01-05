@@ -1,14 +1,22 @@
 package me.inrush.mediaplayer.media.music.services;
 
+import android.app.Notification;
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 
-import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -16,15 +24,20 @@ import java.util.List;
 import me.inrush.mediaplayer.App;
 import me.inrush.mediaplayer.media.bean.Media;
 import me.inrush.mediaplayer.media.common.MediaStatus;
+import me.inrush.mediaplayer.media.music.MusicNotificationManager;
 import me.inrush.mediaplayer.media.music.base.MusicPlayMode;
 
 /**
+ * 音乐服务
+ *
  * @author inrush
  * @date 2017/12/30.
  */
 
-public class MusicService extends Service {
+public class MusicService extends Service
+        implements AudioManager.OnAudioFocusChangeListener {
 
+    private static final int MUSIC_SERVICE_ID = 0x11;
     /**
      * 音乐播放器
      */
@@ -46,6 +59,14 @@ public class MusicService extends Service {
      */
     private MusicPlayMode mPlayMode = MusicPlayMode.LIST_LOOP;
     /**
+     * 音乐通知栏管理器
+     */
+    private MusicNotificationManager mNotification;
+    /**
+     * 指令接收器
+     */
+    private MusicPlayerBroadcastReceiver mReceiver;
+    /**
      * 通讯器
      */
     private MusicBinder mBinder = new MusicBinder();
@@ -62,24 +83,99 @@ public class MusicService extends Service {
      */
     private int mCurrentIndex = 0;
     /**
-     * 自动切换下一首歌
+     * 接受者是否已经注册
      */
-    private Runnable autoNextThread = new Runnable() {
-        @Override
-        public void run() {
-            if (!mIsPlayerInit) {
-                return;
-            }
-            if (mPlayer.getCurrentPosition() == mPlayer.getDuration() - 200) {
-                nextMusic();
-            }
+    private boolean isReceiverRegister = false;
+    /**
+     * 音频管理服务
+     */
+    private AudioManager mAudioManager;
+    /**
+     * 当前的音乐播放器的焦点被夺取以后,是否应该获取焦点继续播放音乐
+     * True:被短暂夺取,焦点恢复以后,可以继续播放音乐
+     * False:被长时间夺取焦点,焦点恢复以后,不可以继续播放音乐
+     */
+    private boolean shouldContinuePlay = false;
+    /**
+     * Android 8.0 以上 获取音频焦点方法必须的
+     */
+    private AudioAttributes mPlayerAttribute = new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build();
+    /**
+     * Android 8.0以上,获取音频焦点必须
+     */
+    private AudioFocusRequest mAudioFocusRequest;
+
+
+    /**
+     * 更新通知栏
+     */
+    private void updateNotification() {
+        if (mNotification == null) {
+            mNotification = new MusicNotificationManager(App.getInstance());
         }
-    };
+        if (getCurrentMusic() != null) {
+            Notification notification = mNotification.initNotification(this);
+            /*
+              使用播放器service来启动notification
+              1. 可以有效的降低service被系统杀死的概率
+              2. 顺便启动一个notification来控制音乐
+             */
+            this.startForeground(MUSIC_SERVICE_ID, notification);
+        }
+    }
+
+    /**
+     * 关闭通知栏
+     */
+    private void closeNotification() {
+        this.stopForeground(true);
+    }
+
+    /**
+     * 请求音频焦点
+     * 防止多个声音同时播放
+     */
+    private void requestAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (mAudioFocusRequest == null) {
+                mAudioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                        .setAudioAttributes(mPlayerAttribute)
+                        .setAcceptsDelayedFocusGain(true)
+                        .setWillPauseWhenDucked(true)
+                        .setOnAudioFocusChangeListener(this)
+                        .build();
+            }
+            mAudioManager.requestAudioFocus(mAudioFocusRequest);
+        } else {
+            mAudioManager.requestAudioFocus(this,
+                    AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+        }
+    }
 
     @Override
     public void onCreate() {
         super.onCreate();
         mPlayer = new MediaPlayer();
+        mAudioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        // 注册事件接收者
+        registerMusicReceiver();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (mPlayer == null) {
+            mPlayer = new MediaPlayer();
+        }
+        if (mAudioManager == null) {
+            mAudioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        }
+        if (!isReceiverRegister) {
+            registerMusicReceiver();
+        }
+        return START_STICKY;
     }
 
     @Nullable
@@ -127,6 +223,7 @@ public class MusicService extends Service {
 
     /**
      * 重置播放列表
+     * 在添加音乐的时候,或者播放模式发生改变的时候要对播放列表进行重置
      */
     private void resetPlayList() {
         Media music = getCurrentMusic();
@@ -141,25 +238,36 @@ public class MusicService extends Service {
             mCurrentIndex = getPlayListIndex(music.getId());
         }
         if (!mIsPlayerInit) {
-            if (mPlayer == null) {
-                mPlayer = new MediaPlayer();
-            }
+
             initPlayer(mPlayList.get(0).getPath());
         }
     }
 
     /**
      * 初始化播放器的监听器
+     * 初始化内容:
+     * 1.音乐播放器音乐准备完成监听器
+     * 2.音乐播放器歌曲完成事件
+     * 3.音乐播放器错误状态监听器
+     * 4.设置音乐播放器的歌曲
      */
-    private void initPlayer(Uri musicUri) {
+    private synchronized void initPlayer(Uri musicUri) {
+        if (mPlayer == null) {
+            mPlayer = new MediaPlayer();
+        }
         mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
             public void onPrepared(MediaPlayer mp) {
                 if (shouldStart) {
+                    // 请求获取焦点
+                    requestAudioFocus();
                     mp.start();
                     shouldStart = false;
                 }
+                // 设置播放器初始化完成
                 mIsPlayerInit = true;
+                // 更新通知栏
+                updateNotification();
             }
         });
         mPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
@@ -188,8 +296,8 @@ public class MusicService extends Service {
         try {
             mPlayer.setDataSource(App.getInstance(), musicUri);
             mPlayer.prepareAsync();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            initPlayer(musicUri);
         }
     }
 
@@ -204,17 +312,30 @@ public class MusicService extends Service {
                 mPlayer.stop();
             }
             mPlayer.reset();
-            mPlayer.setDataSource(App.getInstance(), musicUri);
             mIsPlayerInit = false;
+            mPlayer.setDataSource(App.getInstance(), musicUri);
             mPlayer.prepareAsync();
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             // 发生异常,重新创建MusicPlayer
-            mPlayer = new MediaPlayer();
             initPlayer(musicUri);
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
+
+    /**
+     * 列表空的时候执行的方法
+     * 1.停止播放器
+     * 2.释放播放器,设置播放状态为STOP
+     * 3.设置播放器初始化状态为FALSE
+     */
+    private void recyclePlayer() {
+        mPlayer.stop();
+        mPlayer.release();
+        mStatus = MediaStatus.STOP;
+        mPlayer = null;
+        mIsPlayerInit = false;
+        mCurrentIndex = 0;
+    }
+
 
     /**
      * 播放音乐
@@ -235,20 +356,32 @@ public class MusicService extends Service {
         Uri mediaUri = mPlayList.get(index).getPath();
         shouldStart = true;
         if (mPlayer == null) {
-            mPlayer = new MediaPlayer();
             initPlayer(mediaUri);
         } else if (mCurrentIndex != index) {
             replaceMusic(mediaUri);
         } else {
             if (!isPlaying()) {
+                requestAudioFocus();
                 mPlayer.start();
             }
         }
-        mCurrentIndex = index;
         // 通知音乐发生变化
-        noticeChange(MusicAction.MUSIC_CHANGE);
+        if (mCurrentIndex != index) {
+            noticeChange(MusicAction.MUSIC_CHANGE);
+            mCurrentIndex = index;
+
+        }
+        if (mStatus != MediaStatus.START) {
+            noticeChange(MusicAction.MUSIC_PLAY_STATUS_CHANGE);
+            mStatus = MediaStatus.START;
+        }
     }
 
+    /**
+     * 播放指定音乐
+     *
+     * @param music 需要播放的音乐
+     */
     public void play(Media music) {
         int index = getPlayListIndex(music.getId());
         if (index == -1) {
@@ -259,12 +392,17 @@ public class MusicService extends Service {
         noticeChange(MusicAction.MUSIC_PLAY_STATUS_CHANGE);
     }
 
-
+    /**
+     * 切换播放状态
+     * 暂停变播放
+     * 播放变暂停
+     */
     public void play() {
         if (!mIsPlayerInit) {
             return;
         }
         if (!mPlayer.isPlaying()) {
+            requestAudioFocus();
             mPlayer.start();
             mStatus = MediaStatus.START;
         } else {
@@ -272,9 +410,12 @@ public class MusicService extends Service {
             mStatus = MediaStatus.PAUSE;
         }
         noticeChange(MusicAction.MUSIC_PLAY_STATUS_CHANGE);
+        updateNotification();
     }
 
-
+    /**
+     * 暂停
+     */
     public void pause() {
         if (!mIsPlayerInit) {
             return;
@@ -284,12 +425,19 @@ public class MusicService extends Service {
         }
         mStatus = MediaStatus.PAUSE;
         noticeChange(MusicAction.MUSIC_PLAY_STATUS_CHANGE);
+        updateNotification();
     }
 
+    /**
+     * 下一首歌
+     */
     public void nextMusic() {
         play(mCurrentIndex + 1);
     }
 
+    /**
+     * 下一首歌
+     */
     public void preMusic() {
         if (mPlayMode == MusicPlayMode.ONE_LOOP) {
             play(mCurrentIndex);
@@ -298,14 +446,6 @@ public class MusicService extends Service {
         }
     }
 
-    private void playListEmpty() {
-        mPlayer.stop();
-        mPlayer.release();
-        mStatus = MediaStatus.STOP;
-        mPlayer = null;
-        mIsPlayerInit = false;
-        mCurrentIndex = 0;
-    }
 
     /**
      * 移除音乐列表
@@ -327,7 +467,7 @@ public class MusicService extends Service {
         mCurrentIndex = getPlayListIndex(currentMusic.getId());
         // 全部清空了
         if (mPlayListInfo.size() == 0) {
-            playListEmpty();
+            recyclePlayer();
         }
         noticeChange(MusicAction.MUSIC_LIST_COUNT_CHANGE);
     }
@@ -338,7 +478,7 @@ public class MusicService extends Service {
     public void cleanPlayList() {
         mPlayListInfo.clear();
         mPlayList.clear();
-        playListEmpty();
+        recyclePlayer();
         noticeChange(MusicAction.MUSIC_LIST_COUNT_CHANGE);
     }
 
@@ -373,7 +513,12 @@ public class MusicService extends Service {
         if (mPlayer == null || !mIsPlayerInit) {
             return -1;
         }
-        return mPlayer.getCurrentPosition();
+        try {
+            return mPlayer.getCurrentPosition();
+        } catch (IllegalStateException e) {
+            initPlayer(getCurrentMusic().getPath());
+            return 0;
+        }
     }
 
     public MediaStatus getStatus() {
@@ -391,6 +536,12 @@ public class MusicService extends Service {
         return mPlayListInfo.size();
     }
 
+    /**
+     * 改变播放器的播放模式
+     * if mode is list-loop,the mode will be set to one-loop
+     * if mode is one-loop,the mode will be set to random
+     * if mode is random,the mode will be set to list-loop
+     */
     public void changePlayMode() {
         MusicPlayMode mode = MusicPlayMode.LIST_LOOP;
         if (mPlayMode == MusicPlayMode.ONE_LOOP) {
@@ -440,11 +591,109 @@ public class MusicService extends Service {
         return mIsPlayerInit && mPlayer.isPlaying();
     }
 
+    @Override
+    public void onAudioFocusChange(int focusChange) {
+        // 获得音频焦点
+        if (focusChange == AudioManager.AUDIOFOCUS_GAIN && shouldContinuePlay) {
+            if (!mIsPlayerInit) {
+                initPlayer(getCurrentMusic().getPath());
+            } else {
+                play();
+            }
+        } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+            shouldContinuePlay = false;
+            // 长时间失去焦点
+            pause();
+        } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+            shouldContinuePlay = true;
+            // 短暂失去焦点
+            pause();
+        } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+            shouldContinuePlay = true;
+            // 短暂失去焦点
+            pause();
+        }
+    }
 
+
+    /**
+     * the music service binder
+     * through this binder to get a music service
+     */
     public class MusicBinder extends Binder {
         public MusicService getPlayer() {
             return MusicService.this;
         }
     }
 
+    /**
+     * 注册音乐通知栏指令的监听器
+     * 还有耳机拔出事件的指令监听
+     */
+    private void registerMusicReceiver() {
+        mReceiver = new MusicPlayerBroadcastReceiver(this);
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+        intentFilter.addAction(Intent.ACTION_MEDIA_BUTTON);
+        intentFilter.addAction(MusicAction.MUSIC_PLAY_START);
+        intentFilter.addAction(MusicAction.MUSIC_PLAY_PAUSE);
+        intentFilter.addAction(MusicAction.MUSIC_PLAY_NEXT);
+        intentFilter.addAction(MusicAction.MUSIC_PLAY_PRE);
+        intentFilter.addAction(MusicAction.MUSIC_NOTIFICATION_CLOSE);
+        registerReceiver(mReceiver, intentFilter);
+        isReceiverRegister = true;
+    }
+
+    @Override
+    public void onDestroy() {
+        unregisterReceiver(mReceiver);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mAudioManager.abandonAudioFocusRequest(mAudioFocusRequest);
+            mAudioFocusRequest = null;
+        } else {
+            mAudioManager.abandonAudioFocus(this);
+        }
+        // 重启service
+        Intent localIntent = new Intent(this, MusicService.class);
+        this.startService(localIntent);
+        super.onDestroy();
+    }
+
+    /**
+     * 通知栏控制音乐时,音乐播放器接受指令的接收器
+     */
+    public class MusicPlayerBroadcastReceiver extends BroadcastReceiver {
+
+        private WeakReference<MusicService> mPlayer;
+
+        public MusicPlayerBroadcastReceiver(MusicService player) {
+            mPlayer = new WeakReference<>(player);
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(action)) {
+                // 接收到耳机拔出事件,暂停播放
+                mPlayer.get().pause();
+            } else if (MusicAction.MUSIC_PLAY_START.equals(action)) {
+                // 播放音乐
+                mPlayer.get().play();
+            } else if (MusicAction.MUSIC_PLAY_PAUSE.equals(action)) {
+                // 暂停音乐
+                mPlayer.get().pause();
+            } else if (MusicAction.MUSIC_PLAY_NEXT.equals(action)) {
+                // 下一首音乐
+                mPlayer.get().nextMusic();
+            } else if (MusicAction.MUSIC_PLAY_PRE.equals(action)) {
+                // 上一首音乐
+                mPlayer.get().preMusic();
+            } else if (MusicAction.MUSIC_NOTIFICATION_CLOSE.equals(action)) {
+                // 音乐通知栏被关闭
+                mPlayer.get().pause();
+                mPlayer.get().setCurrentProgress(0);
+                mPlayer.get().closeNotification();
+            }
+        }
+    }
 }

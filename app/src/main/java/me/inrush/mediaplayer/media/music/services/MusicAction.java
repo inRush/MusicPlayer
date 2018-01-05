@@ -27,4 +27,25 @@ public class MusicAction {
      */
     public static final String MUSIC_PLAY_STATUS_CHANGE = "me.inrush.music.play_status_change";
 
+    /**
+     * 音乐播放器播放
+     */
+    public static final String MUSIC_PLAY_START = "me.inrush.music.play_start";
+
+    /**
+     * 音乐播放器暂停
+     */
+    public static final String MUSIC_PLAY_PAUSE = "me.inrush.music.play_pause";
+
+    /**
+     * 下一首歌
+     */
+    public static final String MUSIC_PLAY_NEXT = "me.inrush.music.play_next";
+    /**
+     * 上一首歌
+     */
+    public static final String MUSIC_PLAY_PRE = "me.inrush.music.play_pre";
+
+    public static final String MUSIC_NOTIFICATION_CLOSE = "me.inrush.music.notification_close";
+
 }

@@ -17,10 +17,25 @@ import me.inrush.mediaplayer.media.music.services.MusicService;
  */
 
 public abstract class BaseMusicActivity extends BaseActivity {
+    /**
+     * 音乐播放器
+     */
     protected MusicService mMusicPlayer;
+    /**
+     * 音乐播放器变化事件接收器
+     */
     private MusicBroadcastReceiver mReceiver;
+    /**
+     * 服务是否绑定成功
+     */
     protected boolean mIsBindComplete = false;
+    /**
+     * 音乐播放器初始化器
+     */
     private MusicPlayerInitializer mInitializer;
+    /**
+     * 子类设置的音乐事件变化监听器
+     */
     private OnMusicChangeListener mListener;
 
     @Override
@@ -43,8 +58,16 @@ public abstract class BaseMusicActivity extends BaseActivity {
      */
     protected abstract void onServiceBindComplete();
 
+    /**
+     * 获取音乐变化监听器,子类必须实现
+     *
+     * @return {@link OnMusicChangeListener}
+     */
     protected abstract OnMusicChangeListener getMusicChangeListener();
 
+    /**
+     * 初始化接收器
+     */
     private void initReceiver() {
         mReceiver = new MusicBroadcastReceiver(mMusicPlayer);
         mReceiver.setMusicChangeListener(mListener);
@@ -67,7 +90,9 @@ public abstract class BaseMusicActivity extends BaseActivity {
     @Override
     public void onPause() {
         super.onPause();
-        unregisterReceiver(mReceiver);
+        if (mReceiver != null) {
+            unregisterReceiver(mReceiver);
+        }
         mInitializer.onDestroy();
         mIsBindComplete = false;
     }

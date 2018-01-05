@@ -4,7 +4,9 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.text.format.DateFormat;
 
+import java.text.DecimalFormat;
 import java.util.Date;
 
 /**
@@ -15,12 +17,12 @@ import java.util.Date;
 public class Media implements Parcelable {
     private int id;
     private String name;
-    private int size;
-    private Date date;
+    private String size;
+    private String date;
     private Uri path;
     private Bitmap thumb;
     private String artist;
-
+    private static DecimalFormat sSizeDf = new DecimalFormat("0.00");
 
     public int getId() {
         return id;
@@ -38,20 +40,20 @@ public class Media implements Parcelable {
         this.name = name;
     }
 
-    public int getSize() {
+    public String getSize() {
         return size;
     }
 
     public void setSize(int size) {
-        this.size = size;
+        this.size = sSizeDf.format(size * 1.0 / 1024 / 1024).concat("M");
     }
 
-    public Date getDate() {
+    public String getDate() {
         return date;
     }
 
     public void setDate(Date date) {
-        this.date = date;
+        this.date = DateFormat.format("yyyy.MM.dd kk:mm", date).toString();
     }
 
     public Uri getPath() {
@@ -78,6 +80,7 @@ public class Media implements Parcelable {
         this.artist = artist;
     }
 
+
     @Override
     public int describeContents() {
         return 0;
@@ -87,8 +90,8 @@ public class Media implements Parcelable {
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(this.id);
         dest.writeString(this.name);
-        dest.writeInt(this.size);
-        dest.writeLong(this.date != null ? this.date.getTime() : -1);
+        dest.writeString(this.size);
+        dest.writeString(this.date);
         dest.writeParcelable(this.path, flags);
         dest.writeParcelable(this.thumb, flags);
         dest.writeString(this.artist);
@@ -100,9 +103,8 @@ public class Media implements Parcelable {
     protected Media(Parcel in) {
         this.id = in.readInt();
         this.name = in.readString();
-        this.size = in.readInt();
-        long tmpDate = in.readLong();
-        this.date = tmpDate == -1 ? null : new Date(tmpDate);
+        this.size = in.readString();
+        this.date = in.readString();
         this.path = in.readParcelable(Uri.class.getClassLoader());
         this.thumb = in.readParcelable(Bitmap.class.getClassLoader());
         this.artist = in.readString();

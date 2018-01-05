@@ -28,8 +28,8 @@ dependencies {
     implementation 'pub.devrel:easypermissions:0.3.0'
     implementation 'net.qiujuer.genius:kit-handler:2.0.0'
     implementation 'me.inrush.android:widget:1.0'
-
     annotationProcessor 'com.jakewharton:butterknife-compiler:8.7.0'
+    implementation 'com.tencent.bugly:crashreport:latest.release'
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:0.5'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:2.2.2'

@@ -9,6 +9,8 @@ import me.inrush.mediaplayer.media.common.PlayThread;
 import me.inrush.mediaplayer.media.music.services.MusicService;
 
 /**
+ * 音乐进度变化处理器
+ *
  * @author inrush
  * @date 2017/12/31.
  */
@@ -19,16 +21,18 @@ public class MusicProgressChangeProcessor {
     private MusicHandle mHandle;
     private PlayThread mThread;
 
-
+    /**
+     * 音乐进度变化监听器
+     */
     private Runnable monitor = new Runnable() {
         @Override
         public void run() {
             try {
-                Thread.sleep(1000);
                 Message msg = new Message();
                 msg.what = PROGRESS_CHANGE_ID;
                 msg.arg1 = mMusicPlayer.get().getCurrentProgress();
                 mHandle.sendMessage(msg);
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -55,6 +59,10 @@ public class MusicProgressChangeProcessor {
         void onProgressChange(int progress);
     }
 
+    /**
+     * 处理进度监听器发送的Message
+     * 将进度传送出去
+     */
     static class MusicHandle extends Handler {
         private OnMusicProgressChangeListener mListener;
 

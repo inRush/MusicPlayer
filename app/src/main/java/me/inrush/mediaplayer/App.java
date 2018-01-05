@@ -2,12 +2,23 @@ package me.inrush.mediaplayer;
 
 import android.annotation.SuppressLint;
 import android.app.Application;
+import android.content.ComponentName;
+import android.content.Context;
+import android.media.AudioManager;
+import android.text.TextUtils;
 import android.widget.Toast;
+
+import com.tencent.bugly.crashreport.CrashReport;
 
 import net.qiujuer.genius.kit.handler.Run;
 import net.qiujuer.genius.kit.handler.runable.Action;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+
 import me.inrush.mediaplayer.media.music.MusicPlayerInitializer;
+import me.inrush.mediaplayer.media.music.receivers.MediaButtonReceiver;
 
 /**
  * @author inrush
@@ -24,7 +35,51 @@ public class App extends Application {
         super.onCreate();
         mInstance = this;
         MusicPlayerInitializer.init(this);
+        initBugly();
+        ((AudioManager) getSystemService(AUDIO_SERVICE)).registerMediaButtonEventReceiver(new ComponentName(this, MediaButtonReceiver.class));
     }
+
+    private void initBugly() {
+        Context context = getApplicationContext();
+        // 获取当前包名
+        String packageName = context.getPackageName();
+        // 获取当前进程名
+        String processName = getProcessName(android.os.Process.myPid());
+        // 设置是否为上报进程
+        CrashReport.UserStrategy strategy = new CrashReport.UserStrategy(context);
+        strategy.setUploadProcess(processName == null || processName.equals(packageName));
+        CrashReport.initCrashReport(context, "068d194763", BuildConfig.DEBUG, strategy);
+    }
+
+    /**
+     * 获取进程号对应的进程名
+     *
+     * @param pid 进程号
+     * @return 进程名
+     */
+    private static String getProcessName(int pid) {
+        BufferedReader reader = null;
+        try {
+            reader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));
+            String processName = reader.readLine();
+            if (!TextUtils.isEmpty(processName)) {
+                processName = processName.trim();
+            }
+            return processName;
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        } finally {
+            try {
+                if (reader != null) {
+                    reader.close();
+                }
+            } catch (IOException exception) {
+                exception.printStackTrace();
+            }
+        }
+        return null;
+    }
+
 
     public static Application getInstance() {
         return mInstance;

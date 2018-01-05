@@ -1,16 +1,22 @@
-package me.inrush.mediaplayer.media;
+package me.inrush.mediaplayer.utils;
 
+import android.content.ContentUris;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 
+import java.io.FileDescriptor;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import me.inrush.mediaplayer.App;
+import me.inrush.mediaplayer.R;
 import me.inrush.mediaplayer.media.bean.Media;
 
 /**
@@ -19,6 +25,10 @@ import me.inrush.mediaplayer.media.bean.Media;
  */
 
 public class MediaUtil {
+    /**
+     * 获取专辑封面的Uri
+     */
+    private static final Uri albumArtUri = Uri.parse("content://media/external/audio/albumart");
     private final static String[] AUDIO_PROJECTION = new String[]{
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
@@ -26,8 +36,8 @@ public class MediaUtil {
             MediaStore.Audio.Media.DATE_ADDED,
             MediaStore.Audio.Media.DATA,
             MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.ARTIST
-
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.IS_MUSIC
     };
 
     public static List<Media> getAudioMedias(Context context) {
@@ -37,24 +47,39 @@ public class MediaUtil {
                 AUDIO_PROJECTION, null, new String[]{}, MediaStore.Audio.Media.DATE_ADDED);
         if (cursor != null) {
             while (cursor.moveToNext()) {
+//                int isMusic = cursor.getInt(cursor.getColumnIndex(MediaStore.Audio.Media.IS_MUSIC));
+//                if (isMusic == 0) {
+//                    continue;
+//                }
+
                 Media media = new Media();
-                media.setId(cursor.getInt(cursor.getColumnIndex(MediaStore.Audio.Media._ID)));
-                media.setName(cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)));
-                media.setSize(cursor.getInt(cursor.getColumnIndex(MediaStore.Audio.Media.SIZE)));
-                if (media.getSize() <= 10000) {
+                // 去除不是mp3的
+                String path = cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA));
+                if (!path.contains(".mp3")) {
                     continue;
                 }
+                int size = cursor.getInt(cursor.getColumnIndex(MediaStore.Audio.Media.SIZE));
+                if (size <= 1000000) {
+                    continue;
+                }
+                media.setSize(size);
+
+                media.setPath(Uri.parse(path));
+                media.setId(cursor.getInt(cursor.getColumnIndex(MediaStore.Audio.Media._ID)));
+                media.setName(cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)));
+
                 media.setDate(new Date(cursor.getLong(cursor.getColumnIndex(MediaStore.Audio.Media.DATE_ADDED)) * 1000));
-                media.setPath(Uri.parse(cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA))));
                 media.setArtist(cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST)));
                 int albumId = cursor.getInt(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID));
-                media.setThumb(getThumbBitmap(context, getAudioAlbum(context, albumId)));
+                media.setThumb(getAudioAlbum(App.getInstance(), media.getId(), albumId));
+
                 list.add(media);
             }
             cursor.close();
         }
         return list;
     }
+
     private static Bitmap getThumbBitmap(Context context, String path) {
         if (path == null) {
             return null;
@@ -62,6 +87,57 @@ public class MediaUtil {
             return BitmapFactory.decodeFile(path);
         }
     }
+
+    private static Bitmap getAudioAlbum(Context context, int songId, int albumId) {
+        Bitmap bm = null;
+        if (albumId < 0 && songId < 0) {
+            throw new IllegalArgumentException("Must specify an album or a song id");
+        }
+        try {
+            FileDescriptor fd = null;
+            if (albumId < 0) {
+                Uri uri = Uri.parse("content://media/external/audio/media/"
+                        + songId + "/albumart");
+                ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(uri, "r");
+                if (pfd != null) {
+                    fd = pfd.getFileDescriptor();
+                }
+            } else {
+                Uri uri = ContentUris.withAppendedId(albumArtUri, albumId);
+                ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(uri, "r");
+                if (pfd != null) {
+                    fd = pfd.getFileDescriptor();
+                }
+            }
+//            BitmapFactory.Options options = new BitmapFactory.Options();
+//            options.inSampleSize = 1;
+//            // 只进行大小判断
+//            options.inJustDecodeBounds = true;
+//            // 调用此方法得到options得到图片大小
+//            BitmapFactory.decodeFileDescriptor(fd, null, options);
+//            // 我们的目标是在800pixel的画面上显示
+//            // 所以需要调用computeSampleSize得到图片缩放的比例
+//            options.inSampleSize = 100;
+//            // 我们得到了缩放的比例，现在开始正式读入Bitmap数据
+//            options.inJustDecodeBounds = false;
+//            options.inDither = false;
+//            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+
+            //根据options参数，减少所需要的内存
+            bm = BitmapFactory.decodeFileDescriptor(fd, null, null);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        return bm;
+    }
+
+    private static Bitmap sDefaultMusicThumb = BitmapFactory.decodeResource(App.getInstance().getResources(),
+            R.drawable.placeholder_disk_play_program);
+
+    public static Bitmap getDefaultMusicThumb() {
+        return sDefaultMusicThumb;
+    }
+
     private static String getAudioAlbum(Context context, int albumId) {
         String mUriAlbums = "content://media/external/audio/albums";
         String[] projection = new String[]{MediaStore.Audio.Albums.ALBUM_ART};

@@ -1,10 +1,11 @@
-package me.inrush.mediaplayer.media.music;
+package me.inrush.mediaplayer.media.music.dialogs;
 
 import android.app.Dialog;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.BottomSheetDialogFragment;
 import android.support.v7.widget.LinearLayoutManager;
@@ -30,6 +31,7 @@ import me.inrush.mediaplayer.common.BaseRecyclerAdapter;
 import me.inrush.mediaplayer.common.TransStatusBottomSheetDialog;
 import me.inrush.mediaplayer.media.bean.Media;
 import me.inrush.mediaplayer.media.common.MediaStatus;
+import me.inrush.mediaplayer.media.music.MusicPlayerInitializer;
 import me.inrush.mediaplayer.media.music.base.MusicBroadcastReceiver;
 import me.inrush.mediaplayer.media.music.base.MusicPlayMode;
 import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListenerImpl;
@@ -49,6 +51,7 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
     protected MusicService mMusicPlayer;
     private MusicBroadcastReceiver mReceiver;
     private MusicPlayerInitializer mInitializer;
+    private LinearLayoutManager mLayoutManager;
 
 
     @BindView(R.id.iv_play_mode_icon)
@@ -81,13 +84,13 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
         mAdapter = new PlayListAdapter(mMusicList, mMusicPlayer);
         mAdapter.setListener(new BaseRecyclerAdapter.AdapterListenerImpl<Media>() {
             @Override
-            public void onItemClick(BaseRecyclerAdapter.BaseViewHolder holder, Media data) {
+            public void onItemClick(BaseRecyclerAdapter.BaseViewHolder holder, Media data, int pos) {
                 mMusicPlayer.play(data);
-                mAdapter.notifyDataSetChanged();
             }
         });
         mPlayList.setAdapter(mAdapter);
-        mPlayList.setLayoutManager(new LinearLayoutManager(getContext()));
+        mLayoutManager = new LinearLayoutManager(getContext());
+        mPlayList.setLayoutManager(mLayoutManager);
     }
 
     private void initMusicPlayer() {
@@ -133,12 +136,25 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
     }
 
     private void resetPlayListCurrentPosition(final boolean isAnim) {
+        // 延迟100毫秒执行
         mPlayList.postDelayed(new Runnable() {
             @Override
             public void run() {
                 int index = mMusicPlayer.getMusicIndex(mMusicPlayer.getCurrentMusic().getId(), false);
                 if (index == -1) {
                     return;
+                }
+                if (index > mLayoutManager.findFirstVisibleItemPosition()) {
+                    // 将歌曲移动到中间的位置
+                    index += 4;
+                    if (index >= mMusicList.size()) {
+                        index = mMusicList.size() - 1;
+                    }
+                } else {
+                    index -= 4;
+                    if (index < 0) {
+                        index = 0;
+                    }
                 }
                 if (isAnim) {
                     mPlayList.smoothScrollToPosition(index);
@@ -151,9 +167,10 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
     }
 
 
+    @NonNull
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-
+        // 返回透明状态栏的BottomSheetDialog,防止状态栏黑边
         return new TransStatusBottomSheetDialog(getContext());
     }
 
@@ -191,7 +208,7 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
             super.onMusicChange(media);
             if (mMusicPlayer.getStatus() != MediaStatus.STOP) {
                 mAdapter.notifyDataSetChanged();
-                resetPlayListCurrentPosition(true);
+//                resetPlayListCurrentPosition(true);
             }
         }
 
@@ -212,22 +229,32 @@ public class PlayListBottomSheetDialog extends BottomSheetDialogFragment {
         }
     }
 
-
     private void initReceiver() {
-        mReceiver = new MusicBroadcastReceiver(mMusicPlayer);
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(MusicAction.MUSIC_CHANGE);
         intentFilter.addAction(MusicAction.MUSIC_LIST_COUNT_CHANGE);
         intentFilter.addAction(MusicAction.MUSIC_PLAY_MODE_CHANGE);
         intentFilter.addAction(MusicAction.MUSIC_PLAY_STATUS_CHANGE);
+        mReceiver = new MusicBroadcastReceiver(mMusicPlayer);
         getContext().registerReceiver(mReceiver, intentFilter);
         mReceiver.setMusicChangeListener(new MusicChangeListener());
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        if (mMusicPlayer != null && mReceiver == null) {
+            initReceiver();
+        }
+    }
+
+    @Override
     public void onPause() {
         super.onPause();
-        getContext().unregisterReceiver(mReceiver);
+        if (mReceiver != null) {
+            getContext().unregisterReceiver(mReceiver);
+        }
+        mReceiver = null;
         mInitializer.onDestroy();
     }
 }

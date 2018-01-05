@@ -4,4 +4,7 @@
     <string name="pause">暂停</string>
     <string name="stop">停止</string>
     <string name="placeholder">-</string>
+    <string name="music">音乐</string>
+    <string name="video">视频</string>
+    <string name="click_again_exit">你再点一次试试</string>
 </resources>

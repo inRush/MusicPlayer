@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -156,8 +155,8 @@
                     android:background="@drawable/bg_media_btn"
                     android:contentDescription="@string/app_name"
                     android:elevation="4dp"
-                    android:padding="5dp"
-                    android:src="@drawable/playbar_btn_playlist"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_queue_music_white_24dp"
                     android:tint="#fff"/>
 
             </LinearLayout>

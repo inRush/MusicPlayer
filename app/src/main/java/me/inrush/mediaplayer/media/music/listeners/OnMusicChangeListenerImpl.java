@@ -5,6 +5,8 @@ import me.inrush.mediaplayer.media.common.MediaStatus;
 import me.inrush.mediaplayer.media.music.base.MusicPlayMode;
 
 /**
+ * 音乐变化事件监听实现类
+ *
  * @author inrush
  * @date 2017/12/29.
  */

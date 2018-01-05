@@ -1,21 +1,18 @@
 package me.inrush.mediaplayer.media;
 
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.text.format.DateFormat;
 import android.view.View;
 import android.widget.TextView;
 
 import com.qmuiteam.qmui.widget.QMUIRadiusImageView;
 
-import java.text.DecimalFormat;
 import java.util.List;
 
 import butterknife.BindView;
-import me.inrush.mediaplayer.App;
 import me.inrush.mediaplayer.R;
 import me.inrush.mediaplayer.common.BaseRecyclerAdapter;
 import me.inrush.mediaplayer.media.bean.Media;
+import me.inrush.mediaplayer.utils.MediaUtil;
 
 /**
  * @author inrush
@@ -54,19 +51,14 @@ public class MediaRecyclerAdapter extends BaseRecyclerAdapter<Media> {
         @Override
         protected void onBind(Media data) {
             mName.setText(data.getName());
-            DecimalFormat df = new DecimalFormat("0.00");
-            mSize.setText(df.format(data.getSize() * 1.0 / 1024 / 1024).concat("M"));
-            mDate.setText(DateFormat.format("yyyy.MM.dd kk:mm", data.getDate()));
+            mSize.setText(data.getSize());
+            mDate.setText(data.getDate());
             Bitmap thumb = data.getThumb();
             if (thumb != null) {
                 mThumb.setImageBitmap(thumb);
-            }else{
-                mThumb.setImageBitmap(
-                        BitmapFactory.decodeResource(App.getInstance().getResources(),
-                                R.drawable.placeholder_disk_play_program));
+            } else {
+                mThumb.setImageBitmap(MediaUtil.getDefaultMusicThumb());
             }
-
         }
-
     }
 }

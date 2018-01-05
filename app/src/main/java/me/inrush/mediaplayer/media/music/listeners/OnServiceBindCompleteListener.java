@@ -8,5 +8,10 @@ import me.inrush.mediaplayer.media.music.services.MusicService;
  */
 
 public interface OnServiceBindCompleteListener {
+    /**
+     * 音乐服务绑定结束执行
+     *
+     * @param player 音乐播放器{@link MusicService}
+     */
     void onBindComplete(MusicService player);
 }

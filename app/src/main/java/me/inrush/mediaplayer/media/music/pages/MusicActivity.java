@@ -23,7 +23,7 @@ import me.inrush.mediaplayer.media.common.MediaStatus;
 import me.inrush.mediaplayer.media.music.base.MusicPlayMode;
 import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListener;
 import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListenerImpl;
-import me.inrush.mediaplayer.media.music.PlayListBottomSheetDialog;
+import me.inrush.mediaplayer.media.music.dialogs.PlayListBottomSheetDialog;
 import me.inrush.mediaplayer.media.music.base.BaseMusicActivity;
 import me.inrush.mediaplayer.media.music.base.MusicProgressChangeProcessor;
 import me.inrush.widget.CircleImageView;
@@ -54,10 +54,12 @@ public class MusicActivity extends BaseMusicActivity {
 
     DecimalFormat progressDf = new DecimalFormat("00.00");
 
-    public static void start(Activity activity) {
+    public static void start(Activity activity, boolean showAnim) {
         Intent intent = new Intent(activity, MusicActivity.class);
         activity.startActivity(intent);
-        activity.overridePendingTransition(R.anim.grow_from_bottomleft_to_topright, R.anim.fake_anim);
+        if (showAnim) {
+            activity.overridePendingTransition(R.anim.grow_from_bottomleft_to_topright, R.anim.fake_anim);
+        }
     }
 
     @Override
@@ -86,13 +88,18 @@ public class MusicActivity extends BaseMusicActivity {
             public void onStopTrackingTouch(SeekBar seekBar) {
                 //获取拖动结束之后的位置
                 int progress = seekBar.getProgress();
+                // 设置播放器的播放进度
                 mMusicPlayer.setCurrentProgress(progress);
+                // 设置当前显示的进度
                 setCurrentProgress(progress);
             }
         });
 
     }
 
+    /**
+     * 初始化专辑封面旋转的动画
+     */
     private void initThumbAnimator() {
         mThumbAnimator = ObjectAnimator
                 .ofFloat(mThumb, "rotation", 0f, 360f)
@@ -101,6 +108,9 @@ public class MusicActivity extends BaseMusicActivity {
         mThumbAnimator.setInterpolator(new LinearInterpolator());
     }
 
+    /**
+     * 初始化标题栏,设置标题栏的返回按钮
+     */
     private void initTopBart() {
         mTopBar.addLeftBackImageButton().setOnClickListener(new View.OnClickListener() {
             @Override
@@ -111,7 +121,14 @@ public class MusicActivity extends BaseMusicActivity {
         });
     }
 
-
+    /**
+     * 重置界面显示
+     * 重置内容:
+     * 1.歌曲总时间
+     * 2.顶部标题栏
+     * 3.专辑封面
+     * 4.进度条总长度
+     */
     private void reset() {
         if (mIsBindComplete) {
             // 获取音乐的总时长true
@@ -137,7 +154,14 @@ public class MusicActivity extends BaseMusicActivity {
         }
     }
 
-
+    /**
+     * 设置当前的进度
+     * 设置内容:
+     * 1.进度条的变化
+     * 1.当前时间显示
+     *
+     * @param duration 当前的进度
+     */
     private void setCurrentProgress(int duration) {
         int progress = duration / 1000;
         mDuration.setText(progressDf.format(progress / 60 + progress % 60 * 1.0 / 100));
@@ -145,6 +169,12 @@ public class MusicActivity extends BaseMusicActivity {
         mProgress.setProgress(duration);
     }
 
+    /**
+     * 音乐播放器的播放模式发生变化的时候,设置界面的播放模式
+     * 主要用来设置播放模式按钮的变化
+     *
+     * @param mode 播放模式
+     */
     private void setPlayMode(MusicPlayMode mode) {
         Bitmap bitmap = null;
         switch (mode) {
@@ -163,6 +193,12 @@ public class MusicActivity extends BaseMusicActivity {
         mModeBtn.setImageBitmap(bitmap);
     }
 
+    /**
+     * 设置当前页面的音乐播放状态
+     * 状态 {@link MediaStatus}
+     *
+     * @param status 音乐播放状态
+     */
     private void setMusicStatus(MediaStatus status) {
         if (status == MediaStatus.START) {
             mPlayBtn.setSelected(true);
@@ -233,7 +269,6 @@ public class MusicActivity extends BaseMusicActivity {
                             }
                         });
         setMusicStatus(mMusicPlayer.getStatus());
-
     }
 
     @Override
@@ -241,6 +276,11 @@ public class MusicActivity extends BaseMusicActivity {
         return new MusicChangeListener();
     }
 
+    /**
+     * 音乐变化监听器
+     * 继承{@link OnMusicChangeListener}实现类{@link OnMusicChangeListenerImpl}
+     * 实现部分事件
+     */
     class MusicChangeListener extends OnMusicChangeListenerImpl {
 
         @Override
