@@ -250,7 +250,7 @@ public class MusicService extends Service
      * 3.音乐播放器错误状态监听器
      * 4.设置音乐播放器的歌曲
      */
-    private void initPlayer(Uri musicUri) {
+    private synchronized void initPlayer(Uri musicUri) {
         if (mPlayer == null) {
             mPlayer = new MediaPlayer();
         }
@@ -658,10 +658,14 @@ public class MusicService extends Service
 
     @Override
     public void onDestroy() {
-        unregisterReceiver(mReceiver);
+        if (mReceiver != null) {
+            unregisterReceiver(mReceiver);
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            mAudioManager.abandonAudioFocusRequest(mAudioFocusRequest);
-            mAudioFocusRequest = null;
+            if (mAudioFocusRequest != null) {
+                mAudioManager.abandonAudioFocusRequest(mAudioFocusRequest);
+                mAudioFocusRequest = null;
+            }
         } else {
             mAudioManager.abandonAudioFocus(this);
         }
