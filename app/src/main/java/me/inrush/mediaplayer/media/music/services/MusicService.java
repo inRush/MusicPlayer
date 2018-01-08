@@ -109,7 +109,7 @@ public class MusicService extends Service
      * Android 8.0以上,获取音频焦点必须
      */
     private AudioFocusRequest mAudioFocusRequest;
-
+    private boolean isInForeground = false;
 
     /**
      * 更新通知栏
@@ -123,9 +123,10 @@ public class MusicService extends Service
             /*
               使用播放器service来启动notification
               1. 可以有效的降低service被系统杀死的概率
-              2. 顺便启动一个notification来控制音乐
+              2. 启动一个notification来控制音乐
              */
             this.startForeground(MUSIC_SERVICE_ID, notification);
+            isInForeground = true;
         }
     }
 
@@ -134,6 +135,7 @@ public class MusicService extends Service
      */
     private void closeNotification() {
         this.stopForeground(true);
+        isInForeground = false;
     }
 
     /**
@@ -177,6 +179,7 @@ public class MusicService extends Service
         if (!isReceiverRegister) {
             registerMusicReceiver();
         }
+        Log.e(TAG, "onStartCommand: " );
         return START_STICKY;
     }
 
@@ -664,18 +667,26 @@ public class MusicService extends Service
             unregisterReceiver(mReceiver);
         }
         Log.e(TAG, "onDestroy: " );
-        // 重启service
-        Intent localIntent = new Intent(this, MusicService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (mAudioFocusRequest != null) {
                 mAudioManager.abandonAudioFocusRequest(mAudioFocusRequest);
                 mAudioFocusRequest = null;
             }
-            // android 8.0 not allow background service to start service intent
-            App.getInstance().startForegroundService(localIntent);
         } else {
             mAudioManager.abandonAudioFocus(this);
-            this.startService(localIntent);
+        }
+        // 判断是否和前台的Notification关联,
+        // 如果关联了,那么音乐就在播放,需要重启服务
+        // 否则,没有音乐在播放,服务自然销毁,不需要重启
+        if (isInForeground) {
+            // 重启service
+            Intent localIntent = new Intent(this, MusicService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // android 8.0 not allow background service to start service intent
+                App.getInstance().startForegroundService(localIntent);
+            } else {
+                this.startService(localIntent);
+            }
         }
         super.onDestroy();
     }
