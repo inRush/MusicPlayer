@@ -15,6 +15,7 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
+import android.util.Log;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -38,6 +39,7 @@ public class MusicService extends Service
         implements AudioManager.OnAudioFocusChangeListener {
 
     private static final int MUSIC_SERVICE_ID = 0x11;
+    private static final String TAG = "MusicService";
     /**
      * 音乐播放器
      */
@@ -661,17 +663,20 @@ public class MusicService extends Service
         if (mReceiver != null) {
             unregisterReceiver(mReceiver);
         }
+        Log.e(TAG, "onDestroy: " );
+        // 重启service
+        Intent localIntent = new Intent(this, MusicService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (mAudioFocusRequest != null) {
                 mAudioManager.abandonAudioFocusRequest(mAudioFocusRequest);
                 mAudioFocusRequest = null;
             }
+            // android 8.0 not allow background service to start service intent
+            App.getInstance().startForegroundService(localIntent);
         } else {
             mAudioManager.abandonAudioFocus(this);
+            this.startService(localIntent);
         }
-        // 重启service
-        Intent localIntent = new Intent(this, MusicService.class);
-        this.startService(localIntent);
         super.onDestroy();
     }
 

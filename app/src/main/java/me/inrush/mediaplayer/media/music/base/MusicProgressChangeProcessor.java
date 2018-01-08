@@ -5,6 +5,7 @@ import android.os.Message;
 
 import java.lang.ref.WeakReference;
 
+import me.inrush.mediaplayer.media.common.MediaStatus;
 import me.inrush.mediaplayer.media.common.PlayThread;
 import me.inrush.mediaplayer.media.music.services.MusicService;
 
@@ -28,7 +29,7 @@ public class MusicProgressChangeProcessor {
         @Override
         public void run() {
             try {
-                if (mMusicPlayer.get().isPlaying()) {
+                if (mMusicPlayer.get().getStatus() == MediaStatus.START) {
                     Message msg = new Message();
                     msg.what = PROGRESS_CHANGE_ID;
                     msg.arg1 = mMusicPlayer.get().getCurrentProgress();
