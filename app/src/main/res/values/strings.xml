@@ -7,4 +7,6 @@
     <string name="music">音乐</string>
     <string name="video">视频</string>
     <string name="click_again_exit">你再点一次试试</string>
+    <string name="get_permissions_successful">获取权限成功</string>
+    <string name="granting_authority">授予权限</string>
 </resources>
