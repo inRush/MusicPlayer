@@ -49,7 +49,7 @@ public class MediaRecyclerAdapter extends BaseRecyclerAdapter<Media> {
         }
 
         @Override
-        protected void onBind(Media data) {
+        protected void onBind(Media data,int position) {
             mName.setText(data.getName());
             mSize.setText(data.getSize());
             mDate.setText(data.getDate());

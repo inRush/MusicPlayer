@@ -56,7 +56,7 @@ public abstract class BaseRecyclerAdapter<T> extends RecyclerView.Adapter<BaseRe
     /**
      * 数据列表
      */
-    private final List<T> mDataList;
+    protected final List<T> mDataList;
     /**
      * Item点击事件监听器
      */
@@ -154,7 +154,7 @@ public abstract class BaseRecyclerAdapter<T> extends RecyclerView.Adapter<BaseRe
     public void onBindViewHolder(BaseViewHolder<T> holder, int position) {
         T data = mDataList.get(position);
         // 触发Holder的绑定方法
-        holder.bind(data);
+        holder.bind(data, position);
     }
 
     /**
@@ -294,17 +294,18 @@ public abstract class BaseRecyclerAdapter<T> extends RecyclerView.Adapter<BaseRe
          *
          * @param data 绑定的数据
          */
-        void bind(T data) {
+        void bind(T data, int position) {
             this.mData = data;
-            onBind(data);
+            onBind(data, position);
         }
 
         /**
          * 当触发绑定数据的时候触发,必须复写
          *
-         * @param data 绑定的数据
+         * @param data     绑定的数据
+         * @param position 数据的位置
          */
-        protected abstract void onBind(T data);
+        protected abstract void onBind(T data, int position);
 
         /**
          * Holder自己对自己对应的Data进行更新操作

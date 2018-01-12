@@ -15,7 +15,6 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
-import android.util.Log;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -179,7 +178,6 @@ public class MusicService extends Service
         if (!isReceiverRegister) {
             registerMusicReceiver();
         }
-        Log.e(TAG, "onStartCommand: " );
         return START_STICKY;
     }
 
@@ -236,6 +234,9 @@ public class MusicService extends Service
         mPlayList.addAll(mPlayListInfo);
         if (mPlayMode == MusicPlayMode.RANDOM) {
             Collections.shuffle(mPlayList);
+//            mPlayList.remove(music);
+//            mPlayList.add(mCurrentIndex, music);
+//            Log.e(TAG, "onPageChange: current music index " + mCurrentIndex);
         }
         if (music == null) {
             mCurrentIndex = 0;
@@ -379,7 +380,6 @@ public class MusicService extends Service
         if (mCurrentIndex != index) {
             noticeChange(MusicAction.MUSIC_CHANGE);
             mCurrentIndex = index;
-
         }
         if (mStatus != MediaStatus.START) {
             noticeChange(MusicAction.MUSIC_PLAY_STATUS_CHANGE);
@@ -568,6 +568,10 @@ public class MusicService extends Service
         return mPlayListInfo;
     }
 
+    public ArrayList<Media> getPlayList() {
+        return mPlayList;
+    }
+
     public boolean hasMusic(Media music) {
         return getPlayListInfoIndex(music.getId()) != -1;
     }
@@ -587,6 +591,16 @@ public class MusicService extends Service
             return getPlayListInfoIndex(id);
         }
     }
+
+    /**
+     * 返回当前音乐在播放列表中的索引
+     *
+     * @return Index
+     */
+    public int getCurrentMusicInPlayListIndex() {
+        return mCurrentIndex;
+    }
+
 
     /**
      * 获取播放器是否在播放
@@ -666,7 +680,6 @@ public class MusicService extends Service
         if (mReceiver != null) {
             unregisterReceiver(mReceiver);
         }
-        Log.e(TAG, "onDestroy: " );
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (mAudioFocusRequest != null) {
                 mAudioManager.abandonAudioFocusRequest(mAudioFocusRequest);

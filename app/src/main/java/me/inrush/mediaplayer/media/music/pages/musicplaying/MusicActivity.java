@@ -1,10 +1,13 @@
-package me.inrush.mediaplayer.media.music.pages;
+package me.inrush.mediaplayer.media.music.pages.musicplaying;
 
 import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.support.v7.widget.LinearLayoutManager;
+import android.util.Log;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
 import android.widget.ImageView;
@@ -14,19 +17,21 @@ import android.widget.TextView;
 import com.qmuiteam.qmui.widget.QMUITopBar;
 
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.List;
 
 import butterknife.BindView;
 import butterknife.OnClick;
 import me.inrush.mediaplayer.R;
+import me.inrush.mediaplayer.common.recyclerviewpage.RecyclerViewPage;
 import me.inrush.mediaplayer.media.bean.Media;
 import me.inrush.mediaplayer.media.common.MediaStatus;
+import me.inrush.mediaplayer.media.music.base.BaseMusicActivity;
 import me.inrush.mediaplayer.media.music.base.MusicPlayMode;
+import me.inrush.mediaplayer.media.music.base.MusicProgressChangeProcessor;
+import me.inrush.mediaplayer.media.music.dialogs.PlayListBottomSheetDialog;
 import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListener;
 import me.inrush.mediaplayer.media.music.listeners.OnMusicChangeListenerImpl;
-import me.inrush.mediaplayer.media.music.dialogs.PlayListBottomSheetDialog;
-import me.inrush.mediaplayer.media.music.base.BaseMusicActivity;
-import me.inrush.mediaplayer.media.music.base.MusicProgressChangeProcessor;
-import me.inrush.widget.CircleImageView;
 
 /**
  * @author inrush
@@ -42,15 +47,18 @@ public class MusicActivity extends BaseMusicActivity {
     TextView mDuration;
     @BindView(R.id.tv_total_duration)
     TextView mTotalDuration;
-    @BindView(R.id.iv_thumb)
-    CircleImageView mThumb;
     @BindView(R.id.topbar)
     QMUITopBar mTopBar;
     @BindView(R.id.iv_mode)
     ImageView mModeBtn;
+    @BindView(R.id.rv_music_page)
+    RecyclerViewPage mMusicPage;
 
     private ObjectAnimator mThumbAnimator;
     private MusicProgressChangeProcessor mProgressChangeProcessor;
+    private MusicPageAdapter mMusicPageAdapter;
+    private List<Media> mPlayList = new ArrayList<>();
+    private boolean isReset = false;
 
     DecimalFormat progressDf = new DecimalFormat("00.00");
 
@@ -71,8 +79,8 @@ public class MusicActivity extends BaseMusicActivity {
     @Override
     protected void initWidget() {
         super.initWidget();
-        initThumbAnimator();
         initTopBart();
+        initMusicPage();
         mProgress.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -97,16 +105,89 @@ public class MusicActivity extends BaseMusicActivity {
 
     }
 
+    private void initMusicPage() {
+        final LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false);
+        mMusicPage.setLayoutManager(linearLayoutManager);
+        mMusicPage.setOnPageChangeListener(new RecyclerViewPage.OnPageChangeListener() {
+            @Override
+            public void onPageChange(int newPosition, View newView, int oldPosition, View oldView) {
+                Log.e("tag", "onPageChange: newPosition " + newPosition);
+                Log.e("tag", "onPageChange: oldPosition " + oldPosition);
+                if (newPosition == oldPosition) {
+                    mThumbAnimator.resume();
+                } else {
+                    mMusicPlayer.play(newPosition);
+                    startThumbAnimator(newView);
+                    if (oldView != null) {
+                        oldView.setRotation(0);
+                    }
+                }
+            }
+
+            @Override
+            public void onPageScroll(int dx, int dy) {
+                if (mThumbAnimator == null) {
+                    startThumbAnimator(mMusicPage.getChildAt(0));
+                } else if (mThumbAnimator.isRunning()) {
+                    if (!isReset) {
+                        mThumbAnimator.pause();
+                    } else {
+                        isReset = false;
+                    }
+                }
+            }
+        });
+    }
+
+    private void resetMusicPage() {
+        mPlayList.clear();
+        mPlayList.addAll(mMusicPlayer.getPlayList());
+        if (mMusicPageAdapter == null) {
+            mMusicPageAdapter = new MusicPageAdapter(mPlayList);
+            mMusicPage.setAdapter(mMusicPageAdapter);
+        } else {
+            mMusicPageAdapter.notifyDataSetChanged();
+        }
+        mMusicPage.scrollToPage(mMusicPlayer.getCurrentMusicInPlayListIndex());
+        isReset = true;
+    }
+
     /**
      * 初始化专辑封面旋转的动画
      */
-    private void initThumbAnimator() {
-        mThumbAnimator = ObjectAnimator
-                .ofFloat(mThumb, "rotation", 0f, 360f)
-                .setDuration(30000);
-        mThumbAnimator.setRepeatCount(-1);
-        mThumbAnimator.setInterpolator(new LinearInterpolator());
+    private void startThumbAnimator(final View view) {
+        if (view == null) {
+            return;
+        }
+        if (mThumbAnimator == null) {
+            mThumbAnimator = ObjectAnimator
+                    .ofFloat(view, "rotation", 0f, 360f)
+                    .setDuration(30000);
+            mThumbAnimator.setRepeatCount(-1);
+            mThumbAnimator.setInterpolator(new LinearInterpolator());
+        } else {
+            mThumbAnimator.cancel();
+            mThumbAnimator.setTarget(view);
+        }
+        mThumbAnimator.start();
     }
+
+    private void replaceThumbAnimatorView(final View view, boolean reset) {
+        mThumbAnimator.pause();
+        mThumbAnimator.removeAllUpdateListeners();
+        if (reset) {
+            mThumbAnimator.setFloatValues(0f, 360f);
+        }
+        mThumbAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                float rotateDeg = (float) animation.getAnimatedValue();
+                view.setRotation(rotateDeg);
+            }
+        });
+        mThumbAnimator.resume();
+    }
+
 
     /**
      * 初始化标题栏,设置标题栏的返回按钮
@@ -149,8 +230,6 @@ public class MusicActivity extends BaseMusicActivity {
             setCurrentProgress(mMusicPlayer.getCurrentProgress());
             mTopBar.setTitle(mMusicPlayer.getCurrentMusic().getName());
             mTopBar.setSubTitle(mMusicPlayer.getCurrentMusic().getArtist());
-            Bitmap thumb = mMusicPlayer.getCurrentMusic().getThumb();
-            mThumb.setImageBitmap(thumb);
         }
     }
 
@@ -202,14 +281,18 @@ public class MusicActivity extends BaseMusicActivity {
     private void setMusicStatus(MediaStatus status) {
         if (status == MediaStatus.START) {
             mPlayBtn.setSelected(true);
-            if (mThumbAnimator.isPaused()) {
-                mThumbAnimator.resume();
-            } else {
-                mThumbAnimator.start();
+            if (mThumbAnimator != null) {
+                if (mThumbAnimator.isPaused()) {
+                    mThumbAnimator.resume();
+                } else {
+                    mThumbAnimator.start();
+                }
             }
         } else if (status == MediaStatus.PAUSE) {
             mPlayBtn.setSelected(false);
-            mThumbAnimator.pause();
+            if (mThumbAnimator != null) {
+                mThumbAnimator.pause();
+            }
         }
     }
 
@@ -246,6 +329,7 @@ public class MusicActivity extends BaseMusicActivity {
 
     @Override
     public void onDestroy() {
+        // 停止进度条监听进程
         mProgressChangeProcessor.onDestroy();
         super.onDestroy();
     }
@@ -259,6 +343,7 @@ public class MusicActivity extends BaseMusicActivity {
     @Override
     protected void onServiceBindComplete() {
         reset();
+        resetMusicPage();
         setPlayMode(mMusicPlayer.getPlayMode());
         mProgressChangeProcessor =
                 new MusicProgressChangeProcessor(mMusicPlayer,
@@ -287,6 +372,7 @@ public class MusicActivity extends BaseMusicActivity {
         public void onMusicPlayModeChange(MusicPlayMode mode) {
             super.onMusicPlayModeChange(mode);
             setPlayMode(mode);
+            resetMusicPage();
         }
 
         @Override
@@ -294,6 +380,7 @@ public class MusicActivity extends BaseMusicActivity {
             super.onMusicChange(media);
             if (mMusicPlayer.getStatus() != MediaStatus.STOP) {
                 reset();
+                mMusicPage.smoothScrollToPage(mMusicPlayer.getCurrentMusicInPlayListIndex());
             }
         }
 

@@ -43,6 +43,11 @@ public abstract class BaseMusicFragment extends BaseFragment {
      */
     protected abstract void onServiceBindComplete();
 
+    /**
+     * 获取音乐变化监听器
+     *
+     * @return {@link OnMusicChangeListener}
+     */
     protected abstract OnMusicChangeListener getMusicChangeListener();
 
     private void initReceiver() {

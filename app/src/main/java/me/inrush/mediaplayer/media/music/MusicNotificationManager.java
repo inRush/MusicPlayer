@@ -14,7 +14,7 @@ import android.widget.RemoteViews;
 
 import me.inrush.mediaplayer.R;
 import me.inrush.mediaplayer.media.bean.Media;
-import me.inrush.mediaplayer.media.music.pages.MusicActivity;
+import me.inrush.mediaplayer.media.music.pages.musicplaying.MusicActivity;
 import me.inrush.mediaplayer.media.music.services.MusicAction;
 import me.inrush.mediaplayer.media.music.services.MusicService;
 

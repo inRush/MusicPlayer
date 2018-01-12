@@ -1,4 +1,4 @@
-package me.inrush.mediaplayer.media.music.pages;
+package me.inrush.mediaplayer.media.music.pages.musiclist;
 
 import android.animation.ObjectAnimator;
 import android.graphics.Bitmap;
@@ -24,6 +24,7 @@ import butterknife.OnClick;
 import me.inrush.mediaplayer.R;
 import me.inrush.mediaplayer.common.BaseRecyclerAdapter;
 import me.inrush.mediaplayer.media.MediaRecyclerAdapter;
+import me.inrush.mediaplayer.media.music.pages.musicplaying.MusicActivity;
 import me.inrush.mediaplayer.utils.MediaUtil;
 import me.inrush.mediaplayer.media.bean.Media;
 import me.inrush.mediaplayer.media.common.MediaStatus;

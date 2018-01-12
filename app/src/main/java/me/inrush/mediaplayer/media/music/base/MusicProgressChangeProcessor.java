@@ -29,6 +29,10 @@ public class MusicProgressChangeProcessor {
         @Override
         public void run() {
             try {
+//                if (mMusicPlayer.get() == null) {
+//                    mThread.stopThread();
+//                    return;
+//                }
                 if (mMusicPlayer.get().getStatus() == MediaStatus.START) {
                     Message msg = new Message();
                     msg.what = PROGRESS_CHANGE_ID;

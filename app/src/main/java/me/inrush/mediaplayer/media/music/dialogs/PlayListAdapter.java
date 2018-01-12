@@ -59,7 +59,7 @@ public class PlayListAdapter extends BaseRecyclerAdapter<Media> {
         }
 
         @Override
-        protected void onBind(final Media data) {
+        protected void onBind(final Media data,int position) {
             mName.setText(data.getName());
             mSinger.setText(data.getArtist());
             mDeleteBtn.setOnClickListener(new View.OnClickListener() {
