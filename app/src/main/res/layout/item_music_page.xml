@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <me.inrush.widget.CircleImageView
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:layout_margin="20dp"
+        android:contentDescription="@string/app_name"
+        android:elevation="6dp"
+        android:layout_gravity="center"
+        android:src="@drawable/placeholder_disk_play_program"/>
+
+    <me.inrush.widget.CircleImageView
+        android:id="@+id/iv_thumb"
+        android:layout_width="150dp"
+        android:layout_height="150dp"
+        android:layout_gravity="center"
+        android:elevation="6dp"/>
+</FrameLayout>
