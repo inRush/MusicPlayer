@@ -2,6 +2,14 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
 android {
+    signingConfigs {
+        config {
+            keyAlias 'inrush'
+            keyPassword 'inrush'
+            storeFile file('/Users/inrush/WorkSpace/Android/AndroidKeyStore/inrush')
+            storePassword '128911hwj'
+        }
+    }
     compileSdkVersion 26
     defaultConfig {
         applicationId "me.inrush.mediaplayer"
@@ -15,26 +23,41 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig  signingConfigs.config
+        }
+        debug{
+            signingConfig  signingConfigs.config
         }
     }
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation 'com.android.support:appcompat-v7:26.0.0'
+    //noinspection GradleCompatible
+    implementation "com.android.support:appcompat-v7:$rootProject.ext.support_version"
     implementation 'com.android.support.constraint:constraint-layout:1.0.2'
-    implementation 'com.android.support:recyclerview-v7:26.0.0'
-    implementation 'com.jakewharton:butterknife:8.7.0'
-    implementation 'com.qmuiteam:qmui:1.0.4'
-    implementation 'pub.devrel:easypermissions:0.3.0'
-    implementation 'net.qiujuer.genius:kit-handler:2.0.0'
-    implementation 'me.inrush.android:widget:1.0'
-    annotationProcessor 'com.jakewharton:butterknife-compiler:8.7.0'
-    implementation 'com.tencent.bugly:crashreport:latest.release'
+    // RecyclerView
+    implementation "com.android.support:recyclerview-v7:$rootProject.ext.support_version"
+    // 引入butterknife库
+    implementation "com.jakewharton:butterknife:$rootProject.ext.butterknife_version"
+    annotationProcessor "com.jakewharton:butterknife-compiler:$rootProject.ext.butterknife_version"
+    // 引入腾讯QMUI UI库
+    implementation "com.qmuiteam:qmui:$rootProject.ext.qmui_version"
+    // 引入Android 6.0的动态权限申请库
+    implementation "pub.devrel:easypermissions:$rootProject.ext.easypermissions_version"
+    // 引入handler处理库
+    implementation "net.qiujuer.genius:kit-handler:$rootProject.ext.genius_version"
+    // 引入基础组件库
+    implementation "me.inrush.android:widget:$rootProject.ext.widget_version"
+    // 引入Android 工具库
+    implementation "com.blankj:utilcode:$rootProject.ext.utilcode_version"
+    // 引入腾讯崩溃报告监控库
+    implementation "com.tencent.bugly:crashreport:$rootProject.ext.crashreport_version"
+    // 引入Kotlin编译库
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:0.5'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:2.2.2'
-    compile "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
 }
 repositories {
     mavenCentral()

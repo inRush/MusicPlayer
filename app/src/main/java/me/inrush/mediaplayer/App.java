@@ -8,6 +8,7 @@ import android.media.AudioManager;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import com.blankj.utilcode.util.Utils;
 import com.tencent.bugly.crashreport.CrashReport;
 
 import net.qiujuer.genius.kit.handler.Run;
@@ -36,6 +37,7 @@ public class App extends Application {
         mInstance = this;
         MusicPlayerInitializer.init(this);
         initBugly();
+        Utils.init(this);
         ((AudioManager) getSystemService(AUDIO_SERVICE)).registerMediaButtonEventReceiver(new ComponentName(this, MediaButtonReceiver.class));
     }
 
